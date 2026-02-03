@@ -1,0 +1,17 @@
+% cp - point contact location and orientation
+% cpin - pin contact location and axis orientation
+% clin - line contact location, line orientation, and contact normal
+% cpln - plane contact location and plane normal direction  
+% 
+% Output variables: 
+% wr_pt - point constraint 1-system wrenches
+% wr_pin - pin constraint 2-system wrenches
+% wr_lin - line constraint 2-system wrenches
+% wr_pln - plane constraint 3-system wrenches
+% wr_all - concatenated array of all wrenches
+% no_cp - number of point contacts 
+% no_cpin - number of pin contacts 
+% no_clin - number of line contacts 
+% no_cpln - number of plane contacts 
+% om = Normal(x,y,z) - the screw axis direction, 
+% mu = cross(Position,Normal) - the velocity of the origin

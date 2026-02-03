@@ -1,0 +1,4 @@
+WTR	0
+MRR	0
+MTR	0
+TOR	inf

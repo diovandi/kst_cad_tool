@@ -1,0 +1,230 @@
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Optional
+
+import numpy as np
+
+from .constraints import ConstraintSet
+
+
+def _parse_matlab_vector(s: str) -> np.ndarray:
+    """Parse a MATLAB row vector string like ' 3.57 -0.75 -0.50  0.43  0.75  0.50' or '0.625 0 0, 0, 0 0 0, 0' into a 1D array."""
+    parts = re.split(r"[\s,]+", s.strip())
+    parts = [x for x in parts if x]
+    return np.array([float(x) for x in parts], dtype=float)
+
+
+def _parse_cp_only_m_file(text: str) -> np.ndarray:
+    """Parse cp-only .m file content; return cp as (n, 6) with position and normal columns.
+    Handles: cp1 = [ ... ]; ... cp = [cp1;cp2;...];  or  cp = [ row1; row2; ... ];
+    """
+    # Strip single-line comments (rest of line after %)
+    lines = []
+    for line in text.splitlines():
+        idx = line.find("%")
+        if idx >= 0:
+            line = line[:idx]
+        line = line.strip()
+        if line:
+            lines.append(line)
+    content = " ".join(lines)
+
+    # Case 4 (case2b): ct_2 = input(...); use ct_2==7 branch
+    m_assign = None
+    content_before_assign = ""
+    if "ct_2 = input" in content or "ct_2=input" in content:
+        m7 = re.search(r"elseif\s+ct_2\s*==\s*7\s+cp\s*=\s*\[\s*([^]]+)\]\s*;", content)
+        if m7:
+            content_before_assign = (content.split("ct_2 = input")[0].split("ct_2=input")[0])
+            m_assign = m7
+    if m_assign is None:
+        m_assign = re.search(r"cp\s*=\s*\[\s*([^]]+)\]\s*;", content)
+        if not m_assign:
+            raise ValueError("No 'cp = [ ... ];' found in file")
+        content_before_assign = content[: m_assign.start()]
+
+    cp_vars: dict[str, np.ndarray] = {}
+    for m in re.finditer(r"cp(\d+)\s*=\s*\[\s*([^]]+)\]\s*;", content_before_assign):
+        name = "cp" + m.group(1)
+        vec = _parse_matlab_vector(m.group(2))
+        if vec.size == 6:
+            cp_vars[name] = vec
+
+    inner = m_assign.group(1).strip()
+    # Remove MATLAB line continuation "..." so "cp10;... cp11" -> "cp10; cp11"
+    inner = re.sub(r"\.\.\.\s*", " ", inner)
+    # Check if it's cp1;cp2;... (variable refs) or numeric rows
+    if re.match(r"^cp\d+", inner.replace(" ", "")):
+        # Variable refs: cp1;cp2;cp3;...
+        refs = re.split(r"\s*;\s*", inner)
+        rows = []
+        for ref in refs:
+            ref = ref.strip()
+            if ref not in cp_vars:
+                raise ValueError(f"Unknown variable in cp assignment: {ref}")
+            rows.append(cp_vars[ref])
+        cp = np.vstack(rows)
+    else:
+        # Literal matrix: "a b c d e f ; g h i j k l ; ..."
+        row_strs = re.split(r"\s*;\s*", inner)
+        rows = []
+        for rs in row_strs:
+            rs = rs.strip()
+            if not rs:
+                continue
+            vec = _parse_matlab_vector(rs)
+            if vec.size == 6:
+                rows.append(vec)
+        if not rows:
+            raise ValueError("cp matrix has no valid rows")
+        cp = np.vstack(rows)
+
+    return cp
+
+
+def _parse_optional_matrix(
+    content: str,
+    var_prefix: str,
+    assign_name: str,
+    cols_per_row: int,
+) -> np.ndarray | None:
+    """Parse optional MATLAB matrix: var_prefix1 = [ ... ]; ... assign_name = [ var_prefix1; ... ];"""
+    var_re = re.compile(
+        rf"{re.escape(var_prefix)}(\d+)\s*=\s*\[\s*([^]]+)\]\s*;",
+        re.IGNORECASE,
+    )
+    vars_dict: dict[str, np.ndarray] = {}
+    for m in var_re.finditer(content):
+        name = var_prefix + m.group(1)
+        vec = _parse_matlab_vector(m.group(2))
+        if vec.size == cols_per_row:
+            vars_dict[name] = vec
+
+    assign_re = re.compile(
+        rf"{re.escape(assign_name)}\s*=\s*\[\s*([^]]+)\]\s*;",
+        re.IGNORECASE,
+    )
+    m = assign_re.search(content)
+    if not m or not vars_dict:
+        return None
+    inner = m.group(1).strip()
+    refs = re.split(r"\s*;\s*", inner)
+    rows = []
+    for ref in refs:
+        ref = ref.strip()
+        if ref not in vars_dict:
+            return None
+        rows.append(vars_dict[ref])
+    return np.vstack(rows)
+
+
+def _parse_optional_matrix_or_single(
+    content: str,
+    var_prefix: str,
+    assign_name: str,
+    cols_per_row: int,
+) -> np.ndarray | None:
+    """Parse optional matrix: assign_name = [ a; b; ... ] or assign_name = var_prefix1 (single)."""
+    var_re = re.compile(
+        rf"{re.escape(var_prefix)}(\d+)\s*=\s*\[\s*([^]]+)\]\s*;",
+        re.IGNORECASE,
+    )
+    vars_dict: dict[str, np.ndarray] = {}
+    for m in var_re.finditer(content):
+        name = var_prefix + m.group(1)
+        vec = _parse_matlab_vector(m.group(2))
+        if vec.size == cols_per_row:
+            vars_dict[name] = vec
+    # Single: cpln = cpln1 (only if we have vars)
+    if vars_dict:
+        m_single = re.search(
+            rf"{re.escape(assign_name)}\s*=\s*(\w+)\s*;",
+            content,
+            re.IGNORECASE,
+        )
+        if m_single:
+            ref = m_single.group(1).strip()
+            if ref in vars_dict:
+                return vars_dict[ref].reshape(1, -1)
+    # Matrix: assign_name = [ a; b; ... ]
+    mat = _parse_optional_matrix(content, var_prefix, assign_name, cols_per_row)
+    if mat is not None:
+        return mat
+    # Literal single row: cpln = [ a b c d e f g ];
+    m_lit = re.search(
+        rf"{re.escape(assign_name)}\s*=\s*\[\s*([^]]+)\]\s*;",
+        content,
+        re.IGNORECASE,
+    )
+    if m_lit:
+        vec = _parse_matlab_vector(m_lit.group(1))
+        if vec.size == cols_per_row:
+            return vec.reshape(1, -1)
+    return None
+
+
+def load_case_m_file(
+    path: str | Path,
+    *,
+    normalize_normals: bool = True,
+) -> ConstraintSet:
+    """Load a cp-only MATLAB case file and return a ConstraintSet (points only).
+
+    Parses .m files that define a `cp` matrix (contact points: x,y,z, nx,ny,nz per row).
+    Handles both patterns:
+    - cp1 = [ ... ]; ... cp = [cp1;cp2;...];
+    - cp = [ row1; row2; ... ];
+
+    Parameters
+    ----------
+    path
+        Path to the .m case file (e.g. matlab_script/Input_files/case1a_chair_height.m).
+    normalize_normals
+        If True (default), normalize each row's normal (columns 4:6) as in input_preproc.m.
+
+    Returns
+    -------
+    ConstraintSet with only points populated; pins/lines/planes are empty.
+    For constraint sets with pins/lines/planes, build from arrays using
+    ConstraintSet.from_matlab_style_arrays(cp, cpin, clin, cpln, cpln_prop).
+
+    Raises
+    ------
+    ValueError
+        If the file does not contain a valid cp assignment or has non-cp constraints.
+    """
+    path = Path(path)
+    text = path.read_text(encoding="utf-8", errors="replace")
+    # Strip comments for parsing
+    content = " ".join(
+        line[: line.find("%")] if "%" in line else line
+        for line in text.splitlines()
+        if line.strip()
+    )
+    cp = _parse_cp_only_m_file(text)
+
+    if normalize_normals:
+        for i in range(cp.shape[0]):
+            n = cp[i, 3:6]
+            nnorm = np.linalg.norm(n)
+            if nnorm > 0:
+                cp[i, 3:6] = n / nnorm
+
+    # Optional cpin (6 cols), clin (10 cols)
+    cpin = _parse_optional_matrix(content, "cpin", "cpin", 6)
+    if cpin is None:
+        cpin = np.empty((0, 6), dtype=float)
+    clin = _parse_optional_matrix(content, "clin", "clin", 10)
+    if clin is None:
+        clin = np.empty((0, 10), dtype=float)
+    # cpln (7 cols: midpoint 3, normal 3, type 1), cpln_prop (8 for rect)
+    cpln = _parse_optional_matrix_or_single(content, "cpln", "cpln", 7)
+    if cpln is None:
+        cpln = np.empty((0, 7), dtype=float)
+    cpln_prop = _parse_optional_matrix_or_single(content, "cpln_prop", "cpln_prop", 8)
+    if cpln_prop is None:
+        cpln_prop = np.empty((0, 8), dtype=float)
+
+    return ConstraintSet.from_matlab_style_arrays(cp, cpin, clin, cpln, cpln_prop)
