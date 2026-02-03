@@ -1,0 +1,29 @@
+function resize_circpln_srch(x_grp,cp_rev_in_group, pln_size_srch)
+% Resize circular plane constraints
+% filename: resize_circpln_srch.m
+% 
+% Copyright 2008 Leonard Rusli
+% The Ohio State University
+        
+global no_cp no_cpin no_clin no_cpln 
+global cpln_prop_rev
+
+% Adjustment because parameter x ranges from -1 to 1
+pln_rad=pln_size_srch(5)+(x_grp+1)/2*(pln_size_srch(6)-pln_size_srch(5));
+
+for i=1:length(cp_rev_in_group)    
+    idx=cp_rev_in_group(i);    
+    if idx<=no_cp        
+        disp('Plane size search is not applicable to point constraints');
+        return        
+    elseif idx>no_cp && idx<=no_cp+no_cpin    
+        disp('Plane size search is not applicable to pin constraints');
+        return        
+    elseif idx>no_cp+no_cpin && idx<=no_cp+no_cpin+no_clin        
+        disp('Plane size search is not applicable to line constraints');
+        return        
+    elseif idx>no_cp+no_cpin+no_clin && idx<=no_cp+no_cpin+no_clin+no_cpln        
+        k=idx-(no_cp+no_cpin+no_clin);
+        cpln_prop_rev(k,1)=pln_rad;                
+    end
+end
