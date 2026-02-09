@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.linalg import null_space
+from .utils import matlab_null
 
 
 @dataclass
@@ -61,7 +61,7 @@ def rec_mot(wrench: NDArray[np.float64]) -> ScrewMotion:
 
     # Null space returns a basis; MATLAB uses `null(wrench)` and then assumes
     # a unique 1D null space. We mimic by taking the first basis vector.
-    ns = null_space(wrench)
+    ns = matlab_null(wrench)
     if ns.shape[1] == 0:
         raise ValueError("Wrench matrix has no non-trivial null space; cannot compute reciprocal motion.")
 

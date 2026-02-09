@@ -5,9 +5,9 @@ from typing import List, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.linalg import null_space
 
 from .constraints import ConstraintSet
+from .utils import matlab_null
 
 
 WrenchArray = NDArray[np.float64]  # shape (k, 6)
@@ -57,7 +57,7 @@ def cp_to_wrench(constraints: ConstraintSet) -> Tuple[List[WrenchSystem], NDArra
     for i in range(cpin.shape[0]):
         center = cpin[i, 0:3]
         axis = cpin[i, 3:6]
-        axes = null_space(axis.reshape(1, 3))  # 3×2
+        axes = matlab_null(axis.reshape(1, 3))  # 3×2
         om_axis1 = axes[:, 0]
         om_axis2 = axes[:, 1]
         mu_axis1 = np.cross(center, om_axis1)
@@ -94,7 +94,7 @@ def cp_to_wrench(constraints: ConstraintSet) -> Tuple[List[WrenchSystem], NDArra
         midpoint = cpln[i, 0:3]
         normal = cpln[i, 3:6]
 
-        axes = null_space(normal.reshape(1, 3))  # 3×2
+        axes = matlab_null(normal.reshape(1, 3))  # 3×2
         om_axis1 = normal  # zero pitch
         om_axis2 = np.zeros(3)  # infinite pitch
         om_axis3 = np.zeros(3)  # infinite pitch
@@ -148,7 +148,7 @@ def cp_to_wrench(constraints: ConstraintSet) -> Tuple[List[WrenchSystem], NDArra
                 plane_pts.append(midpoint - xlen / 2.0 * xdir - ylen / 2.0 * ydir)
             elif ptype == 2 and prop.size >= 1:
                 radius = prop[0]
-                axes = null_space(normal.reshape(1, 3))
+                axes = matlab_null(normal.reshape(1, 3))
                 e1 = axes[:, 0]
                 e2 = axes[:, 1]
                 c45 = np.cos(np.deg2rad(45.0))

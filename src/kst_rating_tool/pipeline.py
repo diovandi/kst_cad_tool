@@ -22,6 +22,7 @@ from .rating import (
     rate_cpln2,
 )
 from .react_wr import form_combo_wrench, react_wr_5_compose
+from .utils import matlab_rank
 from .wrench import WrenchSystem, cp_to_wrench
 
 
@@ -46,8 +47,7 @@ def _process_combo_chunk(
         W = form_combo_wrench(wr_all_list, combo_row)
         if W.size == 0:
             continue
-        tol_rank_w = max(W.shape) * np.finfo(float).eps * np.linalg.norm(W)
-        if np.linalg.matrix_rank(W, tol=tol_rank_w) != 5:
+        if matlab_rank(W) != 5:
             continue
         mot = rec_mot(W)
         mot_arr = mot.as_array().ravel()
@@ -190,8 +190,7 @@ def analyze_constraints(
             W = form_combo_wrench(wr_all, combo_row)
             if W.size == 0:
                 continue
-            tol_rank_w = max(W.shape) * np.finfo(float).eps * np.linalg.norm(W)
-            if np.linalg.matrix_rank(W, tol=tol_rank_w) != 5:
+            if matlab_rank(W) != 5:
                 continue
 
             mot = rec_mot(W)
@@ -323,8 +322,7 @@ def analyze_constraints_detailed(
             W = form_combo_wrench(wr_all_list, combo_row)
             if W.size == 0:
                 continue
-            tol_rank_w = max(W.shape) * np.finfo(float).eps * np.linalg.norm(W)
-            if np.linalg.matrix_rank(W, tol=tol_rank_w) != 5:
+            if matlab_rank(W) != 5:
                 continue
 
             mot = rec_mot(W)
@@ -440,7 +438,7 @@ def run_main_loop(
 
     for combo_row in combo:
         W = form_combo_wrench(wr_all, combo_row)
-        if W.size == 0 or np.linalg.matrix_rank(W) != 5:
+        if W.size == 0 or matlab_rank(W) != 5:
             continue
         mot = rec_mot(W)
         mot_arr = mot.as_array().ravel()

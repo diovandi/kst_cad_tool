@@ -5,11 +5,13 @@ from typing import List, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
+import scipy.linalg
 
 from .constraints import ConstraintSet
 from .input_wr import input_wr_compose
 from .motion import ScrewMotion
 from .react_wr import react_wr_5_compose
+from .utils import matlab_rank
 
 
 @dataclass
@@ -22,6 +24,27 @@ class RatingResults:
     TOR: float
 
 
+def _matlab_mldivide(A: NDArray[np.float64], b: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Replicate MATLAB's ``A \\ b`` (mldivide) for square and non-square systems.
+
+    For square full-rank systems: uses LU decomposition (same as MATLAB).
+    For non-square (underdetermined) systems: uses ``scipy.linalg.lstsq``
+    with the ``gelsy`` driver which mirrors MATLAB's QR-with-column-pivoting
+    approach for mldivide.
+    """
+    m, n = A.shape
+    b_flat = np.asarray(b, dtype=np.float64).ravel()
+    if m == n:
+        try:
+            return np.linalg.solve(A, b_flat)
+        except np.linalg.LinAlgError:
+            pass
+    # Non-square or singular square — use LAPACK gelsy (QR with column pivoting,
+    # same as MATLAB's mldivide for underdetermined systems).
+    x, _, _, _ = scipy.linalg.lstsq(A, b_flat, lapack_driver="gelsy")
+    return x
+
+
 def rate_cp(
     mot: NDArray[np.float64],
     react_wr_5: NDArray[np.float64],
@@ -32,25 +55,26 @@ def rate_cp(
 
     MATLAB uses react_wr = [react_wr_5; wr_pt_set]' so columns are wrenches,
     and solves react_wr \\ input_wr (static_sol = react_wr \\ input_wr).
-    We build react_wr (6,6) with columns = wrenches and solve react_wr @ x = b.
+    We build react_wr (6,K) with columns = wrenches and solve react_wr @ x = b.
     """
     rho = mot[6:9]
     cp_pos = cp_row[0:3] - rho
     wr_pt_set = np.concatenate([cp_row[3:6], np.cross(cp_pos, cp_row[3:6])])
 
     # MATLAB: react_wr = [react_wr_5; wr_pt_set]' -> columns = wrenches, solve react_wr \ input_wr
-    react_wr = np.vstack([react_wr_5, wr_pt_set]).T.astype(np.float64, copy=False)  # (6, 6), cols = wrenches
+    stacked = np.vstack([react_wr_5, wr_pt_set])
+    react_wr = stacked.T.astype(np.float64, copy=False)  # (6, K), cols = wrenches
     if not np.all(np.isfinite(react_wr)) or not np.all(np.isfinite(input_wr)):
         return float("inf"), float("inf")
     b = np.asarray(input_wr, dtype=np.float64).reshape(6)
     # MATLAB: rank(react_wr')==6 then react_wr\input_wr
-    tol_rank = max(react_wr.shape) * np.finfo(float).eps * max(np.linalg.norm(react_wr, "fro"), 1.0)
-    if np.linalg.matrix_rank(react_wr, tol=tol_rank) != 6:
+    # react_wr' is the stacked matrix; check its rank matches MATLAB's rank()
+    if matlab_rank(stacked) != 6:
         return float("inf"), float("inf")
     try:
-        static_sol = np.linalg.solve(react_wr, b)
-    except np.linalg.LinAlgError:
-        static_sol = np.linalg.pinv(react_wr) @ b
+        static_sol = _matlab_mldivide(react_wr, b)
+    except Exception:
+        return float("inf"), float("inf")
     if not np.all(np.isfinite(static_sol)):
         return float("inf"), float("inf")
     val = float(static_sol[-1])
@@ -85,10 +109,11 @@ def rate_cpin(
     if np.linalg.norm(const_dir) > 0:
         const_dir = const_dir / np.linalg.norm(const_dir)
         wr_const_dir = np.concatenate([const_dir, np.cross(cpin_ctr - rho, const_dir)])
-        react_wr = np.vstack([react_wr_5, wr_const_dir]).T  # (6, n_cols), columns = wrenches, match MATLAB react_wr\input_wr
-        if react_wr.shape[1] >= 6 and np.linalg.matrix_rank(react_wr) == 6:
+        stacked = np.vstack([react_wr_5, wr_const_dir])
+        react_wr = stacked.T  # (6, n_cols), columns = wrenches
+        if react_wr.shape[1] >= 6 and matlab_rank(stacked) == 6:
             try:
-                static_sol = np.linalg.lstsq(react_wr, np.asarray(input_wr, dtype=float).reshape(6), rcond=None)[0]
+                static_sol = _matlab_mldivide(react_wr, np.asarray(input_wr, dtype=float).reshape(6))
                 if static_sol.size > 0 and np.isfinite(static_sol[-1]):
                     return float(abs(static_sol[-1]))
             except Exception:
@@ -104,7 +129,6 @@ def rate_clin(
 ) -> Tuple[float, float]:
     """Python port of rate_clin.m. Returns Rclin_pos, Rclin_neg.
     MATLAB uses react_wr = [react_wr_5; wr]' so columns = wrenches, solve react_wr \\ input_wr.
-    react_wr_5 can have more than 5 rows (e.g. 2 pin + 1 line = 6 rows); last column coeff is used.
     """
     rho = mot[6:9]
     clin_ctr = clin_row[0:3]
@@ -116,14 +140,14 @@ def rate_clin(
     wr_clin_end1 = np.concatenate([clin_normal, np.cross(clin_end1 - rho, clin_normal)])
     wr_clin_end2 = np.concatenate([clin_normal, np.cross(clin_end2 - rho, clin_normal)])
     M = np.array([float("inf"), float("inf")], dtype=float)
-    b = np.asarray(input_wr, dtype=np.float64).reshape(6)
+    bvec = np.asarray(input_wr, dtype=np.float64).reshape(6)
     for idx, wr in enumerate([wr_clin_end1, wr_clin_end2]):
-        # react_wr (6, n_cols): columns = wrenches, match MATLAB [react_wr_5; wr]'
-        react_wr = np.vstack([react_wr_5, wr]).T
-        if react_wr.shape[1] < 6 or np.linalg.matrix_rank(react_wr) != 6:
+        stacked = np.vstack([react_wr_5, wr])
+        react_wr = stacked.T  # (6, n_cols)
+        if react_wr.shape[1] < 6 or matlab_rank(stacked) != 6:
             continue
         try:
-            static_sol = np.linalg.lstsq(react_wr, b, rcond=None)[0]
+            static_sol = _matlab_mldivide(react_wr, bvec)
         except Exception:
             continue
         if static_sol.size > 0 and np.isfinite(static_sol[-1]):
@@ -170,13 +194,14 @@ def rate_cpln1(
         np.concatenate([cpln_normal, np.cross(cpln_end3 - rho, cpln_normal)]),
         np.concatenate([cpln_normal, np.cross(cpln_end4 - rho, cpln_normal)]),
     ], dtype=float)
-    b = np.asarray(input_wr, dtype=np.float64).reshape(6)
+    bvec = np.asarray(input_wr, dtype=np.float64).reshape(6)
     M = np.full(4, float("inf"), dtype=float)
     for a in range(4):
-        react_wr = np.vstack([react_wr_5, wr_cpln_end[a, :]]).T  # (6, n_cols)
-        if react_wr.shape[1] >= 6 and np.linalg.matrix_rank(react_wr) == 6:
+        stacked = np.vstack([react_wr_5, wr_cpln_end[a, :]])
+        react_wr = stacked.T  # (6, n_cols)
+        if react_wr.shape[1] >= 6 and matlab_rank(stacked) == 6:
             try:
-                static_sol = np.linalg.lstsq(react_wr, b, rcond=None)[0]
+                static_sol = _matlab_mldivide(react_wr, bvec)
                 if static_sol.size > 0 and np.isfinite(static_sol[-1]):
                     M[a] = float(static_sol[-1])
             except Exception:
@@ -227,12 +252,14 @@ def rate_cpln2(
         cpln_edge_pos2 = cpln_ctr.copy()
     wr1 = np.concatenate([cpln_normal, np.cross(cpln_edge_pos1 - rho, cpln_normal)])
     wr2 = np.concatenate([cpln_normal, np.cross(cpln_edge_pos2 - rho, cpln_normal)])
-    b = np.asarray(input_wr, dtype=np.float64).reshape(6)
+    bvec = np.asarray(input_wr, dtype=np.float64).reshape(6)
     M1 = M2 = float("inf")
-    for idx, react_wr in enumerate([np.vstack([react_wr_5, wr1]).T, np.vstack([react_wr_5, wr2]).T]):
-        if react_wr.shape[1] >= 6 and np.linalg.matrix_rank(react_wr) == 6:
+    for idx, wr in enumerate([wr1, wr2]):
+        stacked = np.vstack([react_wr_5, wr])
+        react_wr = stacked.T
+        if react_wr.shape[1] >= 6 and matlab_rank(stacked) == 6:
             try:
-                static_sol = np.linalg.lstsq(react_wr, b, rcond=None)[0]
+                static_sol = _matlab_mldivide(react_wr, bvec)
                 if static_sol.size > 0 and np.isfinite(static_sol[-1]):
                     if idx == 0:
                         M1 = float(static_sol[-1])
