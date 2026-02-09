@@ -1,5 +1,5 @@
 """
-Reporting: HTML result file, table_mot, histogr.
+Reporting: HTML result file, table_mot, histogr, full-report text.
 Ported from result_open.m, result_close.m, report.m, table_mot.m, histogr.m.
 """
 from __future__ import annotations
@@ -10,6 +10,7 @@ from typing import TextIO
 
 import numpy as np
 
+from .pipeline import DetailedAnalysisResult
 from .rating import RatingResults
 
 
@@ -108,7 +109,8 @@ def write_report(
         return
 
     result.write("<b>There is no unconstrained motion. </b><p>\n\n")
-    WTR_idx_flat = np.where(rowsum >= rowsum.min() - 1e-9)[0]
+    min_rs = rowsum.min()
+    WTR_idx_flat = np.where((rowsum >= min_rs - 1e-9) & (rowsum <= min_rs + 1e-9))[0]
     WTR_idx_org = WTR_idx_flat[0] if WTR_idx_flat.size else 0
     result.write("<p>\n<b>Weakest Constrained Motion (according to WTR): <br></b>\n")
     WTR_mot = mot_all_uniq[WTR_idx_org : WTR_idx_org + 1, :]
@@ -139,6 +141,124 @@ def write_report(
     result.write(f"Total Possible Combination: {combo.shape[0]:8.0f} <br>\n")
     result.write(f"Total Linearly Independent Combination Processed: {combo_proc.shape[0]:8.0f} <br>\n\n")
     result.write(f"Total Unique screw motion found: {mot_all_uniq.shape[0] / 2:8.0f}<p>\n\n")
+
+
+def _report_quantities_from_detailed(detailed: DetailedAnalysisResult):
+    """From DetailedAnalysisResult compute mot_all_uniq, Ri_uniq, rowsum, best_cp, WTR_idx, cp table. Same logic as write_report."""
+    _, uniq_idx = np.unique(detailed.mot_all, axis=0, return_index=True)
+    mot_all_uniq = detailed.mot_all[uniq_idx, :] if detailed.mot_all.size > 0 else np.empty((0, 10), dtype=float)
+    Ri_uniq = detailed.rating.Ri
+    total_cp = Ri_uniq.shape[1]
+    no_mot = Ri_uniq.shape[0]
+    rowsum = Ri_uniq.sum(axis=1)
+    max_of_row = np.maximum(Ri_uniq.max(axis=1), 1e-12)
+    best_cp = np.argmax(Ri_uniq, axis=1) + 1
+    free_mot_idx = np.where(rowsum == 0)[0]
+    if free_mot_idx.size > 0 and mot_all_uniq.shape[0] > 0:
+        free_mot = mot_all_uniq[free_mot_idx, :]
+    else:
+        free_mot = np.empty((0, 10), dtype=float)
+    # First index where rowsum equals (or is close to) the minimum, matching MATLAB find(rowsum>=WTR & rowsum<=WTR*1.1)
+    min_rs = float(rowsum.min()) if rowsum.size else 0.0
+    WTR_idx_flat = np.where((rowsum >= min_rs - 1e-9) & (rowsum <= min_rs + 1e-9))[0]
+    WTR_idx_org = int(WTR_idx_flat[0]) if WTR_idx_flat.size and mot_all_uniq.shape[0] > 0 else 0
+    n_col = Ri_uniq.shape[1]
+    non_zero_cnt_in_col = np.count_nonzero(Ri_uniq, axis=0)
+    cp_best_count = np.zeros(n_col, dtype=float)
+    for i in range(n_col):
+        cp_best_count[i] = np.sum(best_cp == (i + 1))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cp_indv_rat = np.where(non_zero_cnt_in_col > 0, Ri_uniq.sum(axis=0) / non_zero_cnt_in_col, 0.0)
+    cp_active_pct = (non_zero_cnt_in_col / no_mot * 100) if no_mot > 0 else np.zeros(n_col)
+    cp_best_pct = (cp_best_count / no_mot * 100) if no_mot > 0 else np.zeros(n_col)
+    return (
+        mot_all_uniq,
+        rowsum,
+        total_cp,
+        best_cp,
+        cp_indv_rat,
+        cp_active_pct,
+        cp_best_pct,
+        free_mot,
+        WTR_idx_org,
+        no_mot,
+        detailed.rating,
+        detailed.combo,
+        detailed.combo_proc,
+    )
+
+
+def write_full_report_txt(detailed: DetailedAnalysisResult, path: Path | str) -> None:
+    """Write machine-readable full results (metrics, counts, WTR motion, CP table) for validation.
+
+    Format matches the thesis report (Ch 10 tables): METRICS, COUNTS, WTR_MOTION, CP_TABLE.
+    Same formulas as write_report; parseable by compare_octave_python --full.
+    """
+    path = Path(path)
+    (
+        mot_all_uniq,
+        rowsum,
+        total_cp,
+        _best_cp,
+        cp_indv_rat,
+        cp_active_pct,
+        cp_best_pct,
+        free_mot,
+        WTR_idx_org,
+        no_mot,
+        rating,
+        combo,
+        combo_proc,
+    ) = _report_quantities_from_detailed(detailed)
+
+    with open(path, "w", encoding="utf-8") as f:
+        # METRICS
+        f.write("METRICS\n")
+        WTR, MRR, MTR, TOR = rating.WTR, rating.MRR, rating.MTR, rating.TOR
+        f.write(f"WTR\t{WTR:.10g}\n")
+        f.write(f"MRR\t{MRR:.10g}\n")
+        f.write(f"MTR\t{MTR:.10g}\n")
+        f.write(f"TOR\t{TOR:.10g}\n")
+        LAR_wtr = 1.0 / WTR if WTR > 0 and np.isfinite(WTR) else float("inf")
+        LAR_mtr = 1.0 / MTR if MTR > 0 and np.isfinite(MTR) else float("inf")
+        f.write(f"LAR_WTR\t{LAR_wtr:.10g}\n")
+        f.write(f"LAR_MTR\t{LAR_mtr:.10g}\n")
+        f.write("\n")
+
+        # COUNTS
+        f.write("COUNTS\n")
+        f.write(f"total_combo\t{combo.shape[0]}\n")
+        f.write(f"combo_proc_count\t{combo_proc.shape[0]}\n")
+        f.write(f"no_mot_half\t{detailed.no_mot_half}\n")
+        no_mot_unique = int(mot_all_uniq.shape[0] / 2)
+        f.write(f"no_mot_unique\t{no_mot_unique}\n")
+        f.write("\n")
+
+        # WTR_MOTION: one row (Om, Mu, Rho, Pitch, Total_Resistance)
+        f.write("WTR_MOTION\n")
+        f.write("Om_x\tOm_y\tOm_z\tMu_x\tMu_y\tMu_z\tRho_x\tRho_y\tRho_z\tPitch\tTotal_Resistance\n")
+        if free_mot.shape[0] > 0:
+            row = free_mot[0, :]
+            f.write(
+                f"{row[0]:.10g}\t{row[1]:.10g}\t{row[2]:.10g}\t{row[3]:.10g}\t{row[4]:.10g}\t{row[5]:.10g}\t"
+                f"{row[6]:.10g}\t{row[7]:.10g}\t{row[8]:.10g}\t{row[9]:.10g}\t0\n"
+            )
+        elif mot_all_uniq.shape[0] > 0:
+            wtr_row = mot_all_uniq[WTR_idx_org, :]
+            tr = float(rowsum[WTR_idx_org])
+            f.write(
+                f"{wtr_row[0]:.10g}\t{wtr_row[1]:.10g}\t{wtr_row[2]:.10g}\t{wtr_row[3]:.10g}\t{wtr_row[4]:.10g}\t{wtr_row[5]:.10g}\t"
+                f"{wtr_row[6]:.10g}\t{wtr_row[7]:.10g}\t{wtr_row[8]:.10g}\t{wtr_row[9]:.10g}\t{tr:.10g}\n"
+            )
+        else:
+            f.write("0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\n")
+        f.write("\n")
+
+        # CP_TABLE
+        f.write("CP_TABLE\n")
+        f.write("CP\tIndividual_Rating\tActive_Pct\tBest_Resistance_Pct\n")
+        for i in range(total_cp):
+            f.write(f"{i + 1}\t{cp_indv_rat[i]:.10g}\t{cp_active_pct[i]:.6f}\t{cp_best_pct[i]:.6f}\n")
 
 
 def histogr(rating: RatingResults, rowsum: np.ndarray) -> None:

@@ -145,6 +145,14 @@ All constraint types (cp, cpin, clin, cpln) are rated in the Python main loop an
 
 ---
 
+## 11. Performance (parallel analysis)
+
+| Feature | Python | Notes |
+|--------|--------|--------|
+| **Parallel combo loop** | `analyze_constraints(..., n_workers=N)`, `analyze_constraints_detailed(..., n_workers=N)` | Optional process-based parallelism over combo rows. Default `n_workers=1` (sequential). Results are merged in combo order so output matches sequential run. Use `n_workers=2` or more to speed up large cases (e.g. printer cases with many combos). |
+
+---
+
 ## Conclusion
 
 - **Replicated:** Core analysis for **all constraint types** (rate_cp, rate_cpin, rate_clin, rate_cpln1, rate_cpln2), wrenches, combo, motion, rating aggregation, revision/reduction/postproc optimization, search-space functions, specmot analysis and **specmot optimization** (rate_specmot, main_specmot_optim), sensitivity analysis (sens_analysis_pos, sens_analysis_orient), HTML-style reporting (result_open/close, write_report, table_mot), histogr, and optim_postproc_plot.

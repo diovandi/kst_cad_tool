@@ -85,7 +85,7 @@ def rate_cpin(
     if np.linalg.norm(const_dir) > 0:
         const_dir = const_dir / np.linalg.norm(const_dir)
         wr_const_dir = np.concatenate([const_dir, np.cross(cpin_ctr - rho, const_dir)])
-        react_wr = np.vstack([react_wr_5, wr_const_dir]).T  # (6, n_cols), columns = wrenches
+        react_wr = np.vstack([react_wr_5, wr_const_dir]).T  # (6, n_cols), columns = wrenches, match MATLAB react_wr\input_wr
         if react_wr.shape[1] >= 6 and np.linalg.matrix_rank(react_wr) == 6:
             try:
                 static_sol = np.linalg.lstsq(react_wr, np.asarray(input_wr, dtype=float).reshape(6), rcond=None)[0]

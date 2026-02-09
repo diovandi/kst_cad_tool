@@ -92,8 +92,20 @@ Details and MATLAB↔Python mapping are in **`docs/MATLAB_TO_PYTHON_COVERAGE.md`
 
 ---
 
-## 5. References in This Repo
+## 5. Post–Pak Leo meeting (Feb 2025)
 
-- **COMPARISON.md** — How to run and compare Python vs Octave; case list; validation status.
+Actions taken and next priorities from the meeting:
+
+- **combo_preproc:** The Python `combination.py` includes 5-constraint combinations (`c5 = _nchoosek(5)`) in the pin/line branch, matching MATLAB; this was verified in place.
+- **Case 8 batch/config:** The comparison script pipes stdin `0` for case 8 so Octave runs the no_snap==0 (cp-only) branch. `run_case_batch.m` now sets `no_snap = 0` for case 8 so non-interactive runs use the same branch. Python loads the first `cp = [ ... ]` block in case4a_endcap_tradeoff.m (no_snap==0). Documented in COMPARISON.md.
+- **MATLAB 7.7 verification (plan):** When available (lab license or legacy install), run the same 21 cases on MATLAB 7.7, record WTR/MRR/MTR/TOR, and compare to Octave. If they match, document that Octave is an acceptable reference for the Python port; if they differ, document differences and choose MATLAB 7.7 or Octave as the canonical reference for 1:1 parity work.
+- **Parallel processing (plan):** Add optional parallel execution for the analysis main loop (e.g. `analyze_constraints_detailed(..., n_workers=4)`) using a process pool to evaluate combo rows or motion ratings in parallel; benchmark and document in MATLAB_TO_PYTHON_COVERAGE.md or a short Performance note.
+- **Next priorities:** (1) Full 1:1 parity for all 21 cases (investigate remaining differences for cases 8–20: combo order, motion uniqueness, or solver/rounding). (2) After stabilization, optimization methods (GA, Newton-style, etc.) as a separate phase.
+
+---
+
+## 6. References in This Repo
+
+- **COMPARISON.md** — How to run and compare Python vs Octave; case list; validation status; batch stdin for cases 3, 4, 8.
 - **MATLAB_TO_PYTHON_COVERAGE.md** — Function-by-function replication status (core, optimization, specmot, sensitivity, I/O).
 - **README.md** — Installation, usage, and status of the Python backend.
