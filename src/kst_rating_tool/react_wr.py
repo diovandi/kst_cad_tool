@@ -4,9 +4,9 @@ from typing import List
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.linalg import null_space
 
 from .constraints import ConstraintSet
+from .utils import matlab_null
 
 
 def form_combo_wrench(wr_all: List[NDArray[np.float64]], comb: NDArray[np.int_]) -> NDArray[np.float64]:
@@ -62,7 +62,7 @@ def react_wr_5_compose(constraints: ConstraintSet, comb: NDArray[np.int_], rho: 
             b = idx - no_cp - 1
             cpin_pos = cpin[b, 0:3] - rho
             axis = cpin[b, 3:6]
-            axes = null_space(axis.reshape(1, 3))
+            axes = matlab_null(axis.reshape(1, 3))
             om1 = axes[:, 0]
             om2 = axes[:, 1]
             mu1 = np.cross(cpin_pos, om1)
@@ -84,7 +84,7 @@ def react_wr_5_compose(constraints: ConstraintSet, comb: NDArray[np.int_], rho: 
             b = idx - (no_cp + no_cpin + no_clin) - 1
             cpln_pos = cpln[b, 0:3] - rho
             normal = cpln[b, 3:6]
-            axes = null_space(normal.reshape(1, 3))
+            axes = matlab_null(normal.reshape(1, 3))
             om1 = normal
             om2 = np.zeros(3, dtype=float)
             om3 = np.zeros(3, dtype=float)

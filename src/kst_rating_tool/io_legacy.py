@@ -165,17 +165,80 @@ def _parse_optional_matrix_or_single(
     return None
 
 
+def _extract_active_branch(text: str) -> str:
+    """Extract the active code branch from a MATLAB file with conditionals.
+
+    Handles case4a-style files with ``if no_snap==0 ... elseif no_snap==2 ...``
+    by extracting only the first branch (``no_snap==0``).
+
+    Also strips ``if ~exist('no_snap'...)`` preamble lines.
+    Returns the full text unchanged for files without ``no_snap`` conditionals.
+    """
+    # Strip single-line comments
+    lines = []
+    for line in text.splitlines():
+        idx = line.find("%")
+        if idx >= 0:
+            line = line[:idx]
+        line = line.rstrip()
+        if line.strip():
+            lines.append(line)
+    joined = "\n".join(lines)
+
+    # Check for no_snap conditional pattern
+    m_branch = re.search(r'if\s+no_snap\s*==\s*0\b', joined)
+    if not m_branch:
+        return text  # no conditional — return unchanged
+
+    # Find the start of the first branch (right after 'if no_snap==0')
+    branch_start = m_branch.end()
+
+    # Find the end: the next top-level 'elseif', 'else', or 'end' at the same nesting level
+    depth = 1
+    pos = branch_start
+    branch_end = len(joined)
+    while pos < len(joined):
+        # Look for keywords
+        m_kw = re.search(r'\b(if|elseif|else|end)\b', joined[pos:])
+        if not m_kw:
+            break
+        kw = m_kw.group(1)
+        kw_pos = pos + m_kw.start()
+        if kw == 'if':
+            depth += 1
+            pos = kw_pos + len(kw)
+        elif kw in ('elseif', 'else'):
+            if depth == 1:
+                branch_end = kw_pos
+                break
+            pos = kw_pos + len(kw)
+        elif kw == 'end':
+            if depth == 1:
+                branch_end = kw_pos
+                break
+            depth -= 1
+            pos = kw_pos + len(kw)
+        else:
+            pos = kw_pos + len(kw)
+
+    # Return everything before the if-block + the first branch content
+    preamble = joined[:m_branch.start()]
+    branch_body = joined[branch_start:branch_end]
+    return preamble + "\n" + branch_body
+
+
 def load_case_m_file(
     path: str | Path,
     *,
     normalize_normals: bool = True,
 ) -> ConstraintSet:
-    """Load a cp-only MATLAB case file and return a ConstraintSet (points only).
+    """Load a MATLAB case file and return a ConstraintSet.
 
-    Parses .m files that define a `cp` matrix (contact points: x,y,z, nx,ny,nz per row).
-    Handles both patterns:
-    - cp1 = [ ... ]; ... cp = [cp1;cp2;...];
-    - cp = [ row1; row2; ... ];
+    Parses .m files that define a ``cp`` matrix and optionally ``cpin``, ``clin``,
+    ``cpln``, ``cpln_prop``.
+
+    Handles conditional files (e.g. case4a with ``no_snap`` branches) by extracting
+    only the first branch.
 
     Parameters
     ----------
@@ -183,40 +246,29 @@ def load_case_m_file(
         Path to the .m case file (e.g. matlab_script/Input_files/case1a_chair_height.m).
     normalize_normals
         If True (default), normalize each row's normal (columns 4:6) as in input_preproc.m.
-
-    Returns
-    -------
-    ConstraintSet with only points populated; pins/lines/planes are empty.
-    For constraint sets with pins/lines/planes, build from arrays using
-    ConstraintSet.from_matlab_style_arrays(cp, cpin, clin, cpln, cpln_prop).
-
-    Raises
-    ------
-    ValueError
-        If the file does not contain a valid cp assignment or has non-cp constraints.
     """
     path = Path(path)
     text = path.read_text(encoding="utf-8", errors="replace")
-    # Strip comments for parsing
+
+    # Extract the active branch for files with conditionals (e.g. case4a)
+    active_text = _extract_active_branch(text)
+
+    # Strip comments for content-based parsing
     content = " ".join(
         line[: line.find("%")] if "%" in line else line
-        for line in text.splitlines()
+        for line in active_text.splitlines()
         if line.strip()
     )
-    cp = _parse_cp_only_m_file(text)
 
-    if normalize_normals:
-        for i in range(cp.shape[0]):
-            n = cp[i, 3:6]
-            nnorm = np.linalg.norm(n)
-            if nnorm > 0:
-                cp[i, 3:6] = n / nnorm
+    cp = _parse_cp_only_m_file(active_text)
 
     # Optional cpin (6 cols), clin (10 cols)
-    cpin = _parse_optional_matrix(content, "cpin", "cpin", 6)
+    # Use _parse_optional_matrix_or_single so single-row literal assignments
+    # like "cpin=[0 0 0 0 0 1];" (without cpin1, cpin2, etc.) are parsed.
+    cpin = _parse_optional_matrix_or_single(content, "cpin", "cpin", 6)
     if cpin is None:
         cpin = np.empty((0, 6), dtype=float)
-    clin = _parse_optional_matrix(content, "clin", "clin", 10)
+    clin = _parse_optional_matrix_or_single(content, "clin", "clin", 10)
     if clin is None:
         clin = np.empty((0, 10), dtype=float)
     # cpln (7 cols: midpoint 3, normal 3, type 1), cpln_prop (8 for rect)
@@ -226,5 +278,36 @@ def load_case_m_file(
     cpln_prop = _parse_optional_matrix_or_single(content, "cpln_prop", "cpln_prop", 8)
     if cpln_prop is None:
         cpln_prop = np.empty((0, 8), dtype=float)
+
+    # ---- Normalize direction cosines (mirrors MATLAB input_preproc.m) ----
+    if normalize_normals:
+        # CP: normalize normal vector (cols 4:6)
+        for i in range(cp.shape[0]):
+            n = cp[i, 3:6]
+            nnorm = np.linalg.norm(n)
+            if nnorm > 0:
+                cp[i, 3:6] = n / nnorm
+        # CPIN: normalize pin axis (cols 4:6)
+        for i in range(cpin.shape[0]):
+            n = cpin[i, 3:6]
+            nnorm = np.linalg.norm(n)
+            if nnorm > 0:
+                cpin[i, 3:6] = n / nnorm
+        # CLIN: normalize line direction (cols 4:6) AND constraint direction (cols 7:9)
+        for i in range(clin.shape[0]):
+            d = clin[i, 3:6]
+            dnorm = np.linalg.norm(d)
+            if dnorm > 0:
+                clin[i, 3:6] = d / dnorm
+            c = clin[i, 6:9]
+            cnorm = np.linalg.norm(c)
+            if cnorm > 0:
+                clin[i, 6:9] = c / cnorm
+        # CPLN: normalize plane normal (cols 4:6)
+        for i in range(cpln.shape[0]):
+            n = cpln[i, 3:6]
+            nnorm = np.linalg.norm(n)
+            if nnorm > 0:
+                cpln[i, 3:6] = n / nnorm
 
     return ConstraintSet.from_matlab_style_arrays(cp, cpin, clin, cpln, cpln_prop)

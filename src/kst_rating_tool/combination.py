@@ -67,14 +67,14 @@ def combo_preproc(constraints: ConstraintSet) -> np.ndarray:
     if 'c5' not in locals():
         c5 = np.empty((0, 5), dtype=int)
 
+    # Stack groups in MATLAB order: [combo2; combo3; combo4; combo5]
+    # Do NOT re-sort: MATLAB's nchoosek already produces lexicographic order
+    # within each group, and the groups are stacked sequentially.
+    # Sorting globally would interleave groups, changing which combo "wins"
+    # the duplicate-motion detection race in the main loop.
     combo = np.vstack([combo2, combo3, combo4, c5]) if any(
         x.size for x in (combo2, combo3, combo4, c5)
     ) else np.empty((0, 5), dtype=int)
-
-    # Match MATLAB nchoosek row order (lexicographic by columns 0..4)
-    if combo.size > 0:
-        order = np.lexsort((combo[:, 4], combo[:, 3], combo[:, 2], combo[:, 1], combo[:, 0]))
-        combo = combo[order]
 
     return combo
 
