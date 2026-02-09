@@ -65,8 +65,13 @@ for i = 1:size(combo,1)
         % Solve the reciprocal motion
         [mot]=rec_mot(pivot_wr);
 
-        % Check for duplicate motion        
-        [ismbr idx]=ismember(mot,mot_hold,'rows');
+        % Check for duplicate motion (skip when mot_hold empty: MATLAB requires same cols for 'rows')
+        if isempty(mot_hold)
+            ismbr = 0;
+            idx = 0;
+        else
+            [ismbr idx]=ismember(mot,mot_hold,'rows');
+        end
         if ismbr==0
             mot_hold=[mot_hold;mot];
         else

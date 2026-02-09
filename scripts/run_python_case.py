@@ -3,14 +3,16 @@
 Run KST analysis on a MATLAB case file and write WTR, MRR, MTR, TOR to a text file.
 
 Usage:
-  python scripts/run_python_case.py <case_name_or_number>
-  python -m scripts.run_python_case <case_name_or_number>
+  python scripts/run_python_case.py <case_name_or_number> [--full]
+  python -m scripts.run_python_case <case_name_or_number> [--full]
 
 Examples:
   python scripts/run_python_case.py case1a_chair_height
-  python scripts/run_python_case.py 1
+  python scripts/run_python_case.py 1 --full
 
-Output: results_python_<casename>.txt in the repository root (for comparison with Octave).
+Output:
+  results_python_<casename>.txt in the repository root (for comparison with Octave).
+  With --full: also results_python_<casename>_full.txt (metrics, counts, WTR motion, CP table).
 """
 
 from __future__ import annotations
@@ -45,12 +47,14 @@ CASE_NUM_TO_NAME = {
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("Usage: python scripts/run_python_case.py <case_name_or_number>", file=sys.stderr)
+    args = [a for a in sys.argv[1:] if a != "--full"]
+    full = "--full" in sys.argv[1:]
+    if len(args) != 1:
+        print("Usage: python scripts/run_python_case.py <case_name_or_number> [--full]", file=sys.stderr)
         print("Example: python scripts/run_python_case.py case1a_chair_height", file=sys.stderr)
         return 1
 
-    arg = sys.argv[1].strip()
+    arg = args[0].strip()
     if arg.isdigit():
         n = int(arg)
         if n < 1 or n > 21:
@@ -59,9 +63,7 @@ def main() -> int:
         case_name = CASE_NUM_TO_NAME[n]
     else:
         case_name = arg
-        if not case_name.endswith(".m"):
-            pass
-        else:
+        if case_name.endswith(".m"):
             case_name = case_name[:-2]
 
     repo_root = Path(__file__).resolve().parent.parent
@@ -75,10 +77,19 @@ def main() -> int:
         sys.path.insert(0, str(repo_root / "src"))
 
     from kst_rating_tool.io_legacy import load_case_m_file
-    from kst_rating_tool import analyze_constraints
+    from kst_rating_tool import analyze_constraints, analyze_constraints_detailed
+    from kst_rating_tool.reporting import write_full_report_txt
 
     constraints = load_case_m_file(case_path)
-    results = analyze_constraints(constraints)
+
+    if full:
+        detailed = analyze_constraints_detailed(constraints)
+        results = detailed.rating
+        full_path = repo_root / f"results_python_{case_name}_full.txt"
+        write_full_report_txt(detailed, full_path)
+        print(f"Wrote {full_path} (full report)")
+    else:
+        results = analyze_constraints(constraints)
 
     out_path = repo_root / f"results_python_{case_name}.txt"
     with open(out_path, "w") as f:

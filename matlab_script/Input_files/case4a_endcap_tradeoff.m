@@ -1,7 +1,7 @@
 % cp1 =[-0.5 .125 0 1 0 0];
 % cp2 =[0.5 0 0 -1 0 0];
 
-no_snap=input('How many snaps? ');
+if ~exist('no_snap', 'var'), no_snap=input('How many snaps? '); end
 
 if no_snap==0
     %this is non-HOC model

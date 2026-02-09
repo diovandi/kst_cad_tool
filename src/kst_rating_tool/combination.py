@@ -71,5 +71,10 @@ def combo_preproc(constraints: ConstraintSet) -> np.ndarray:
         x.size for x in (combo2, combo3, combo4, c5)
     ) else np.empty((0, 5), dtype=int)
 
+    # Match MATLAB nchoosek row order (lexicographic by columns 0..4)
+    if combo.size > 0:
+        order = np.lexsort((combo[:, 4], combo[:, 3], combo[:, 2], combo[:, 1], combo[:, 0]))
+        combo = combo[order]
+
     return combo
 

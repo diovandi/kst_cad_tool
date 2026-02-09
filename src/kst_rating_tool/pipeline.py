@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List
+from multiprocessing import Pool
+from typing import List, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -22,6 +23,45 @@ from .rating import (
 )
 from .react_wr import form_combo_wrench, react_wr_5_compose
 from .wrench import WrenchSystem, cp_to_wrench
+
+
+def _process_combo_chunk(
+    args: Tuple[
+        List[int],
+        NDArray[np.int_],
+        List[NDArray[np.float64]],
+        NDArray[np.float64],
+        float,
+        ConstraintSet,
+    ],
+) -> List[Tuple[int, NDArray[np.float64], NDArray[np.float64]]]:  # R_two_rows (2, total_cp)
+    """Process a chunk of combo rows; return (combo_i, mot_row, R_row) for rank-5 combos.
+    Used by parallel analysis; no duplicate detection (done in main process).
+    """
+    combo_indices, combo_chunk, wr_all_list, pts, max_d, constraints = args
+    cp, cpin, clin, cpln, cpln_prop = constraints.to_matlab_style_arrays()
+    total_cp = constraints.total_cp
+    out: List[Tuple[int, NDArray[np.float64], NDArray[np.float64]]] = []
+    for idx, combo_row in zip(combo_indices, combo_chunk):
+        W = form_combo_wrench(wr_all_list, combo_row)
+        if W.size == 0:
+            continue
+        tol_rank_w = max(W.shape) * np.finfo(float).eps * np.linalg.norm(W)
+        if np.linalg.matrix_rank(W, tol=tol_rank_w) != 5:
+            continue
+        mot = rec_mot(W)
+        mot_arr = mot.as_array().ravel()
+        mot_arr = np.round(mot_arr * 1e4) / 1e4
+        input_wr, _ = input_wr_compose(mot, pts, max_d)
+        react_wr_5 = react_wr_5_compose(constraints, combo_row, mot.rho)
+        rcp_pos, rcp_neg, rcpin, rclin_pos, rclin_neg, rcpln_pos, rcpln_neg = _rate_motion_all_constraints(
+            mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop
+        )
+        row_forward = np.hstack([rcp_pos, rcpin, rclin_pos, rcpln_pos])
+        row_reverse = np.hstack([rcp_neg, rcpin, rclin_neg, rcpln_neg])
+        R_two_rows = np.vstack([row_forward, row_reverse])
+        out.append((idx, mot_arr, R_two_rows))
+    return out
 
 
 @dataclass
@@ -79,11 +119,22 @@ def _rate_motion_all_constraints(
     return Rcp_pos, Rcp_neg, Rcpin_row, Rclin_pos, Rclin_neg, Rcpln_pos, Rcpln_neg
 
 
-def analyze_constraints(constraints: ConstraintSet) -> RatingResults:
+def analyze_constraints(
+    constraints: ConstraintSet,
+    n_workers: int = 1,
+) -> RatingResults:
     """High-level analysis pipeline for a fixed configuration.
 
     Mirrors main_loop.m and main.m: rates all constraint types (cp, cpin, clin, cpln),
     builds R = [Rcp Rcpin Rclin Rcpln], merges forward/reverse, unique motions, aggregate.
+
+    Parameters
+    ----------
+    constraints
+        Constraint set describing the assembly.
+    n_workers
+        Number of parallel workers for the combo loop (1 = sequential). Uses process-based
+        parallelism; results are merged in combo order so output matches sequential run.
     """
 
     wr_all_sys, pts, max_d = cp_to_wrench(constraints)
@@ -103,38 +154,70 @@ def analyze_constraints(constraints: ConstraintSet) -> RatingResults:
     Rcpln_pos_rows: List[NDArray[np.float64]] = []
     Rcpln_neg_rows: List[NDArray[np.float64]] = []
 
-    for combo_row in combo:
-        W = form_combo_wrench(wr_all, combo_row)
-        if W.size == 0:
-            continue
-        tol_rank_w = max(W.shape) * np.finfo(float).eps * np.linalg.norm(W)
-        if np.linalg.matrix_rank(W, tol=tol_rank_w) != 5:
-            continue
-
-        mot = rec_mot(W)
-        mot_arr = mot.as_array().ravel()
-        mot_arr = np.round(mot_arr * 1e4) / 1e4
-        mot_row = mot_arr.reshape(1, -1)
-        if mot_hold:
-            already = np.any(
-                np.all(np.vstack(mot_hold) == mot_row, axis=1)
-            )
-            if already:
+    if n_workers is not None and n_workers > 1:
+        n_combo = combo.shape[0]
+        chunk_size = max(1, (n_combo + n_workers - 1) // n_workers)
+        chunks: List[Tuple[List[int], NDArray[np.int_]]] = []
+        for s in range(0, n_combo, chunk_size):
+            e = min(s + chunk_size, n_combo)
+            chunks.append((list(range(s, e)), combo[s:e]))
+        pool_args = [
+            (indices, combo_chunk, wr_all, pts, max_d, constraints)
+            for indices, combo_chunk in chunks
+        ]
+        with Pool(processes=n_workers) as pool:
+            chunk_results = pool.map(_process_combo_chunk, pool_args)
+        all_results: List[Tuple[int, NDArray[np.float64], NDArray[np.float64]]] = []
+        for lst in chunk_results:
+            all_results.extend(lst)
+        all_results.sort(key=lambda x: x[0])
+        for combo_i, mot_arr, R_two_rows in all_results:
+            mot_row = mot_arr.reshape(1, -1)
+            if mot_hold:
+                already = np.any(np.all(np.vstack(mot_hold) == mot_row, axis=1))
+                if already:
+                    continue
+            mot_hold.append(mot_row.ravel().copy())
+            Rcp_pos_rows.append(R_two_rows[0, :no_cp])
+            Rcp_neg_rows.append(R_two_rows[1, :no_cp])
+            Rcpin_rows.append(R_two_rows[0, no_cp : no_cp + no_cpin])
+            Rclin_pos_rows.append(R_two_rows[0, no_cp + no_cpin : no_cp + no_cpin + no_clin])
+            Rclin_neg_rows.append(R_two_rows[1, no_cp + no_cpin : no_cp + no_cpin + no_clin])
+            Rcpln_pos_rows.append(R_two_rows[0, no_cp + no_cpin + no_clin : total_cp])
+            Rcpln_neg_rows.append(R_two_rows[1, no_cp + no_cpin + no_clin : total_cp])
+    else:
+        for combo_row in combo:
+            W = form_combo_wrench(wr_all, combo_row)
+            if W.size == 0:
                 continue
-        mot_hold.append(mot_row.ravel().copy())
+            tol_rank_w = max(W.shape) * np.finfo(float).eps * np.linalg.norm(W)
+            if np.linalg.matrix_rank(W, tol=tol_rank_w) != 5:
+                continue
 
-        input_wr, _ = input_wr_compose(mot, pts, max_d)
-        react_wr_5 = react_wr_5_compose(constraints, combo_row, mot.rho)
-        rcp_pos, rcp_neg, rcpin, rclin_pos, rclin_neg, rcpln_pos, rcpln_neg = _rate_motion_all_constraints(
-            mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop
-        )
-        Rcp_pos_rows.append(rcp_pos)
-        Rcp_neg_rows.append(rcp_neg)
-        Rcpin_rows.append(rcpin)
-        Rclin_pos_rows.append(rclin_pos)
-        Rclin_neg_rows.append(rclin_neg)
-        Rcpln_pos_rows.append(rcpln_pos)
-        Rcpln_neg_rows.append(rcpln_neg)
+            mot = rec_mot(W)
+            mot_arr = mot.as_array().ravel()
+            mot_arr = np.round(mot_arr * 1e4) / 1e4
+            mot_row = mot_arr.reshape(1, -1)
+            if mot_hold:
+                already = np.any(
+                    np.all(np.vstack(mot_hold) == mot_row, axis=1)
+                )
+                if already:
+                    continue
+            mot_hold.append(mot_row.ravel().copy())
+
+            input_wr, _ = input_wr_compose(mot, pts, max_d)
+            react_wr_5 = react_wr_5_compose(constraints, combo_row, mot.rho)
+            rcp_pos, rcp_neg, rcpin, rclin_pos, rclin_neg, rcpln_pos, rcpln_neg = _rate_motion_all_constraints(
+                mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop
+            )
+            Rcp_pos_rows.append(rcp_pos)
+            Rcp_neg_rows.append(rcp_neg)
+            Rcpin_rows.append(rcpin)
+            Rclin_pos_rows.append(rclin_pos)
+            Rclin_neg_rows.append(rclin_neg)
+            Rcpln_pos_rows.append(rcpln_pos)
+            Rcpln_neg_rows.append(rcpln_neg)
 
     if not mot_hold:
         R = np.full((1, max(1, total_cp)), np.inf, dtype=float)
@@ -158,15 +241,27 @@ def analyze_constraints(constraints: ConstraintSet) -> RatingResults:
     mot_all = np.vstack([mot_half, mot_half_rev])
     mot_all = np.round(mot_all * 1e4) / 1e4
 
+    # Match MATLAB unique(mot_all_org, 'rows'): keep first occurrence of each unique motion
     _, uniq_idx = np.unique(mot_all, axis=0, return_index=True)
     R_uniq = R[uniq_idx, :]
     return aggregate_ratings(R_uniq)
 
 
-def analyze_constraints_detailed(constraints: ConstraintSet) -> DetailedAnalysisResult:
+def analyze_constraints_detailed(
+    constraints: ConstraintSet,
+    n_workers: int = 1,
+) -> DetailedAnalysisResult:
     """Full analysis returning R, mot_half, combo_proc, combo_dup_idx for optimizers.
 
     Same as analyze_constraints but also returns intermediate structures; rates all constraint types.
+
+    Parameters
+    ----------
+    constraints
+        Constraint set describing the assembly.
+    n_workers
+        Number of parallel workers for the combo loop (1 = sequential). Uses process-based
+        parallelism; results are merged in combo order so output matches sequential run.
     """
     wr_all_sys, pts, max_d = cp_to_wrench(constraints)
     wr_all_list: List[NDArray[np.float64]] = [w.as_array() for w in wr_all_sys]
@@ -187,41 +282,78 @@ def analyze_constraints_detailed(constraints: ConstraintSet) -> DetailedAnalysis
     combo_proc_rows: List[NDArray[np.int_]] = []
     combo_dup_idx = np.zeros(combo.shape[0], dtype=np.int_)
 
-    for combo_i, combo_row in enumerate(combo):
-        W = form_combo_wrench(wr_all_list, combo_row)
-        if W.size == 0:
-            continue
-        tol_rank_w = max(W.shape) * np.finfo(float).eps * np.linalg.norm(W)
-        if np.linalg.matrix_rank(W, tol=tol_rank_w) != 5:
-            continue
-
-        mot = rec_mot(W)
-        mot_arr = mot.as_array().ravel()
-        mot_arr = np.round(mot_arr * 1e4) / 1e4
-        mot_row = mot_arr.reshape(1, -1)
-
-        if mot_hold:
-            already = np.any(np.all(np.vstack(mot_hold) == mot_row, axis=1))
-            if already:
-                idx_existing = np.argmax(np.all(np.vstack(mot_hold) == mot_row, axis=1))
-                combo_dup_idx[combo_i] = idx_existing + 1
+    if n_workers is not None and n_workers > 1:
+        n_combo = combo.shape[0]
+        chunk_size = max(1, (n_combo + n_workers - 1) // n_workers)
+        chunks_d: List[Tuple[List[int], NDArray[np.int_]]] = []
+        for s in range(0, n_combo, chunk_size):
+            e = min(s + chunk_size, n_combo)
+            chunks_d.append((list(range(s, e)), combo[s:e]))
+        pool_args_d = [
+            (indices, combo_chunk, wr_all_list, pts, max_d, constraints)
+            for indices, combo_chunk in chunks_d
+        ]
+        with Pool(processes=n_workers) as pool:
+            chunk_results_d = pool.map(_process_combo_chunk, pool_args_d)
+        all_results_d: List[Tuple[int, NDArray[np.float64], NDArray[np.float64]]] = []
+        for lst in chunk_results_d:
+            all_results_d.extend(lst)
+        all_results_d.sort(key=lambda x: x[0])
+        for combo_i, mot_arr, R_two_rows in all_results_d:
+            mot_row = mot_arr.reshape(1, -1)
+            if mot_hold:
+                already_arr = np.all(np.vstack(mot_hold) == mot_row, axis=1)
+                already = np.any(already_arr)
+                if already:
+                    idx_existing = int(np.argmax(already_arr))
+                    combo_dup_idx[combo_i] = idx_existing + 1
+                    continue
+            combo_dup_idx[combo_i] = 0
+            mot_hold.append(mot_row.ravel().copy())
+            combo_proc_rows.append(np.concatenate([[combo_i + 1], combo[combo_i]]).astype(np.int_))
+            Rcp_pos_rows.append(R_two_rows[0, :no_cp])
+            Rcp_neg_rows.append(R_two_rows[1, :no_cp])
+            Rcpin_rows.append(R_two_rows[0, no_cp : no_cp + no_cpin])
+            Rclin_pos_rows.append(R_two_rows[0, no_cp + no_cpin : no_cp + no_cpin + no_clin])
+            Rclin_neg_rows.append(R_two_rows[1, no_cp + no_cpin : no_cp + no_cpin + no_clin])
+            Rcpln_pos_rows.append(R_two_rows[0, no_cp + no_cpin + no_clin : total_cp])
+            Rcpln_neg_rows.append(R_two_rows[1, no_cp + no_cpin + no_clin : total_cp])
+    else:
+        for combo_i, combo_row in enumerate(combo):
+            W = form_combo_wrench(wr_all_list, combo_row)
+            if W.size == 0:
                 continue
-        combo_dup_idx[combo_i] = 0
+            tol_rank_w = max(W.shape) * np.finfo(float).eps * np.linalg.norm(W)
+            if np.linalg.matrix_rank(W, tol=tol_rank_w) != 5:
+                continue
 
-        input_wr, _ = input_wr_compose(mot, pts, max_d)
-        react_wr_5 = react_wr_5_compose(constraints, combo_row, mot.rho)
-        rcp_pos, rcp_neg, rcpin, rclin_pos, rclin_neg, rcpln_pos, rcpln_neg = _rate_motion_all_constraints(
-            mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop
-        )
-        Rcp_pos_rows.append(rcp_pos)
-        Rcp_neg_rows.append(rcp_neg)
-        Rcpin_rows.append(rcpin)
-        Rclin_pos_rows.append(rclin_pos)
-        Rclin_neg_rows.append(rclin_neg)
-        Rcpln_pos_rows.append(rcpln_pos)
-        Rcpln_neg_rows.append(rcpln_neg)
-        mot_hold.append(mot_row.ravel().copy())
-        combo_proc_rows.append(np.concatenate([[combo_i + 1], combo_row]).astype(np.int_))
+            mot = rec_mot(W)
+            mot_arr = mot.as_array().ravel()
+            mot_arr = np.round(mot_arr * 1e4) / 1e4
+            mot_row = mot_arr.reshape(1, -1)
+
+            if mot_hold:
+                already = np.any(np.all(np.vstack(mot_hold) == mot_row, axis=1))
+                if already:
+                    idx_existing = np.argmax(np.all(np.vstack(mot_hold) == mot_row, axis=1))
+                    combo_dup_idx[combo_i] = idx_existing + 1
+                    continue
+            combo_dup_idx[combo_i] = 0
+
+            input_wr, _ = input_wr_compose(mot, pts, max_d)
+            react_wr_5 = react_wr_5_compose(constraints, combo_row, mot.rho)
+            rcp_pos, rcp_neg, rcpin, rclin_pos, rclin_neg, rcpln_pos, rcpln_neg = _rate_motion_all_constraints(
+                mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop
+            )
+            Rcp_pos_rows.append(rcp_pos)
+            Rcp_neg_rows.append(rcp_neg)
+            Rcpin_rows.append(rcpin)
+            Rclin_pos_rows.append(rclin_pos)
+            Rclin_neg_rows.append(rclin_neg)
+            Rcpln_pos_rows.append(rcpln_pos)
+            Rcpln_neg_rows.append(rcpln_neg)
+            mot_hold.append(mot_row.ravel().copy())
+            combo_proc_rows.append(np.concatenate([[combo_i + 1], combo_row]).astype(np.int_))
 
     if not mot_hold:
         R = np.full((1, max(1, total_cp)), np.inf, dtype=float)
@@ -263,6 +395,7 @@ def analyze_constraints_detailed(constraints: ConstraintSet) -> DetailedAnalysis
     mot_all = np.round(mot_all * 1e4) / 1e4
     combo_proc = np.vstack(combo_proc_rows)
 
+    # Match MATLAB unique(mot_all_org, 'rows'): first occurrence per unique motion
     _, uniq_idx = np.unique(mot_all, axis=0, return_index=True)
     R_uniq = R[uniq_idx, :]
     rating_res = aggregate_ratings(R_uniq)

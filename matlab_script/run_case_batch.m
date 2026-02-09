@@ -1,7 +1,7 @@
 % Batch driver for KST analysis: run one case without interactive prompts.
-% Usage: from matlab_script directory: octave --no-gui run_case_batch.m <case_number>
-% Example: octave --no-gui run_case_batch.m 1
-% Writes WTR, MRR, MTR, TOR to results_octave_<casename>.txt for comparison.
+% Octave: from matlab_script directory: octave --no-gui run_case_batch.m <case_number>
+% MATLAB:  from matlab_script directory: matlab -nosplash -nodesktop -r "cp_set=1; run_case_batch"
+% Writes WTR, MRR, MTR, TOR to results_<octave|matlab>_<casename>.txt for comparison.
 
 1;  % Prevent Octave from treating this as a function file
 
@@ -10,12 +10,18 @@ script_dir = fileparts(mfilename('fullpath'));
 addpath(fullfile(script_dir, 'Analysis and design tool'));
 addpath(fullfile(script_dir, 'Input_files'));
 
-% Get case number from first command-line argument
-args = argv();
-if isempty(args)
-  error('Usage: octave run_case_batch.m <case_number> (e.g. 1 for case1a_chair_height)');
+% Get case number: Octave uses argv(); MATLAB expects cp_set pre-set via -r flag
+if exist('OCTAVE_VERSION', 'builtin')
+  args = argv();
+  if isempty(args)
+    error('Usage: octave run_case_batch.m <case_number> (e.g. 1 for case1a_chair_height)');
+  end
+  cp_set = str2double(args{1});
+else
+  if ~exist('cp_set', 'var')
+    error('Set cp_set before running, e.g.: matlab -r "cp_set=1; run_case_batch"');
+  end
 end
-cp_set = str2double(args{1});
 if isnan(cp_set) || cp_set < 1 || cp_set > 21
   error('Case number must be 1..21');
 end
@@ -60,7 +66,17 @@ if cp_set == 3
   scale = 1;  % case2a_cube_scalability uses input('Scaling factor = ')
 end
 if cp_set == 8
-  no_snap = 1;  % case4a_endcap_tradeoff uses input('How many snaps? ')
+  no_snap = 0;  % case4a_endcap_tradeoff: 0=cp-only (non-HOC), 2/3=with cpin/cpln. For batch comparison use stdin "0"
+end
+if cp_set == 4
+  ct_2 = 7;  % case2b_cube_tradeoff: 7 constraint points for batch comparison
+end
+
+% Engine-specific output prefix (octave vs matlab)
+if exist('OCTAVE_VERSION', 'builtin')
+  engine_prefix = 'octave';
+else
+  engine_prefix = 'matlab';
 end
 
 inp_dir = fullfile(script_dir, 'Input_files');
@@ -125,7 +141,7 @@ Ri_uniq = Ri(uniq_idx, :);
 [Rating_all_org, WTR_idx_org, free_mot, free_mot_idx, best_cp, rowsum] = rating(Ri_uniq, mot_all_org_uniq);
 
 % Write results for comparison (WTR, MRR, MTR, TOR)
-outname = ['results_octave_', inputfile, '.txt'];
+outname = ['results_', engine_prefix, '_', inputfile, '.txt'];
 fid = fopen(outname, 'w');
 if fid == -1
   error('Could not open %s for writing', outname);
@@ -137,3 +153,62 @@ fprintf(fid, 'TOR\t%.10g\n', Rating_all_org(4));
 fclose(fid);
 fprintf('Wrote %s (WTR=%.4f, MRR=%.4f, MTR=%.4f, TOR=%.4f)\n', ...
   outname, Rating_all_org(1), Rating_all_org(2), Rating_all_org(3), Rating_all_org(4));
+
+% Full report (same format as Python results_*_full.txt for validation)
+no_mot = size(mot_all_org_uniq, 1);
+non_zero_cnt_in_col = sum(Ri_uniq ~= 0, 1);
+cp_best_count = zeros(1, total_cp);
+for i = 1:total_cp
+  cp_best_count(i) = sum(best_cp == i);
+end
+cp_indv_rat = sum(Ri_uniq, 1) ./ non_zero_cnt_in_col;
+cp_indv_rat(non_zero_cnt_in_col == 0) = 0;
+cp_active_pct = non_zero_cnt_in_col / no_mot * 100;
+cp_best_pct = cp_best_count / no_mot * 100;
+% WTR motion: free motion (TR=0) or weakest constrained motion
+if ~isempty(free_mot)
+  wtr_mot_row = free_mot(1, :);
+  wtr_tr = 0;
+else
+  wtr_row_idx = WTR_idx_org(1);
+  wtr_mot_row = mot_all_org_uniq(wtr_row_idx, :);
+  wtr_tr = rowsum(wtr_row_idx);
+end
+
+fullname = ['results_', engine_prefix, '_', inputfile, '_full.txt'];
+fid = fopen(fullname, 'w');
+if fid == -1
+  error('Could not open %s for writing', fullname);
+end
+fprintf(fid, 'METRICS\n');
+fprintf(fid, 'WTR\t%.10g\n', Rating_all_org(1));
+fprintf(fid, 'MRR\t%.10g\n', Rating_all_org(2));
+fprintf(fid, 'MTR\t%.10g\n', Rating_all_org(3));
+fprintf(fid, 'TOR\t%.10g\n', Rating_all_org(4));
+if Rating_all_org(1) > 0 && isfinite(1/Rating_all_org(1))
+  fprintf(fid, 'LAR_WTR\t%.10g\n', 1/Rating_all_org(1));
+else
+  fprintf(fid, 'LAR_WTR\tinf\n');
+end
+if Rating_all_org(3) > 0 && isfinite(1/Rating_all_org(3))
+  fprintf(fid, 'LAR_MTR\t%.10g\n', 1/Rating_all_org(3));
+else
+  fprintf(fid, 'LAR_MTR\tinf\n');
+end
+fprintf(fid, '\nCOUNTS\n');
+fprintf(fid, 'total_combo\t%.0f\n', size(combo, 1));
+fprintf(fid, 'combo_proc_count\t%.0f\n', size(combo_proc_org, 1));
+fprintf(fid, 'no_mot_half\t%.0f\n', size(mot_half, 1));
+fprintf(fid, 'no_mot_unique\t%.0f\n', size(mot_all_org_uniq, 1) / 2);
+fprintf(fid, '\nWTR_MOTION\n');
+fprintf(fid, 'Om_x\tOm_y\tOm_z\tMu_x\tMu_y\tMu_z\tRho_x\tRho_y\tRho_z\tPitch\tTotal_Resistance\n');
+fprintf(fid, '%.10g\t%.10g\t%.10g\t%.10g\t%.10g\t%.10g\t%.10g\t%.10g\t%.10g\t%.10g\t%.10g\n', ...
+  wtr_mot_row(1), wtr_mot_row(2), wtr_mot_row(3), wtr_mot_row(4), wtr_mot_row(5), wtr_mot_row(6), ...
+  wtr_mot_row(7), wtr_mot_row(8), wtr_mot_row(9), wtr_mot_row(10), wtr_tr);
+fprintf(fid, '\nCP_TABLE\n');
+fprintf(fid, 'CP\tIndividual_Rating\tActive_Pct\tBest_Resistance_Pct\n');
+for i = 1:total_cp
+  fprintf(fid, '%d\t%.10g\t%.6f\t%.6f\n', i, cp_indv_rat(i), cp_active_pct(i), cp_best_pct(i));
+end
+fclose(fid);
+fprintf('Wrote %s (full report)\n', fullname);
