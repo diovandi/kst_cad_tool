@@ -83,7 +83,18 @@ You can run the original MATLAB test cases in Python (by loading the `.m` case f
 - **Octave**: `cd matlab_script && octave --no-gui run_case_batch.m <case_number>`
 - **Compare**: `python scripts/compare_octave_python.py <case_name_or_number>`
 
+### Wizard demo (meeting preview)
+
+A **Python skeleton** of the planned Inventor add-in (Analysis + Optimization wizards) runs without Inventor or MATLAB:
+
+```bash
+python scripts/wizard_demo.py
+```
+
+Two tabs: **Analysis Wizard** (constraint table, Select, Analyze → JSON) and **Optimization Wizard** (constraint selection, search space, generate plan, load results). See **[docs/PROJECT_STATUS_SUMMARY.md](docs/PROJECT_STATUS_SUMMARY.md)** for project status.
+
 ### Status
 
-This backend is under active development as part of Phase 1 of the thesis and aims to achieve numerical agreement with the original MATLAB implementation and Rusli's published case studies.
+- **Python vs Octave/MATLAB:** **All 21 cases pass** (WTR, MRR, MTR, TOR within atol=1e-3, rtol=5%). See [docs/PARKED.md](docs/PARKED.md) and `python scripts/compare_octave_python.py all`.
+- **CAD add-in:** Focus is on the Inventor add-in (analysis and optimization wizards); see [docs/PROJECT_STATUS_SUMMARY.md](docs/PROJECT_STATUS_SUMMARY.md).
 

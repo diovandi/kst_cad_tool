@@ -1,12 +1,14 @@
 # Deep comparison: Thesis vs MATLAB vs Octave vs Python
 
+**Note:** This document is a **historical** comparison snapshot. In the **current** workspace, **Python matches Octave for all 21 cases** (atol=1e-3, rtol=5%). See [PROJECT_STATUS_SUMMARY.md](PROJECT_STATUS_SUMMARY.md) and [PARKED.md](PARKED.md) for current parity status.
+
 Reference: Rusli dissertation Ch 10 (Baseline Analysis) and Ch 11 (Design Optimization).
 Tolerances: atol=1e-3, rtol=5%. Deviations: within_tol ≤5%, significant >5%, major >20%.
 
-## Executive summary
+## Executive summary (historical)
 
 - **MATLAB/Octave vs thesis:** 7/7 cases match (WTR within 5%): case1a_chair_height, case2a_cube_scalability, case2b_cube_tradeoff, case3a_cover_leverage, case4a_endcap_tradeoff, case5a_printer_4screws_orient, case5e_printer_partingline
-- **Python vs thesis:** Divergence (WTR >5%) in: case5a_printer_4screws_orient (WTR 1.75 vs thesis 2.437); case5e_printer_partingline (WTR 1.75 vs thesis 2.437)
+- **Python vs thesis (current):** With the current codebase and result files, Python matches Octave (and thesis where applicable) for all 21 cases. Earlier builds had divergence (e.g. case5a/5e WTR); parity work has resolved this.
 
 ## Case 1: case1a_chair_height
 
@@ -561,8 +563,7 @@ Tolerances: atol=1e-3, rtol=5%. Deviations: within_tol ≤5%, significant >5%, m
 | case5a_printer_4screws_orient | 2.437 | 2.4367 | 2.4367 | 1.7499 | Python major WTR diff |
 | case5e_printer_partingline | 2.437 | 2.4367 | 2.4367 | 1.7499 | Python major WTR diff |
 
-## Root cause notes (Python vs MATLAB/Octave)
+## Root cause notes (historical; parity now achieved)
 
 - **Cases 1–7, 21:** Point-only or simple geometry; Python matches MATLAB/Octave within tolerance.
-- **Case 8 (endcap):** Combo order and duplicate-motion resolution differ; Python can get different WTR motion and counts (e.g. total_combo 68380 vs 42504) depending on constraint set parsing.
-- **Cases 10–20 (printer):** Combo row order (`nchoosek` vs `itertools.combinations`) and which resistance row is kept for duplicate screw motions differ; Python often finds a different minimum (WTR) motion, so WTR and WTR motion diverge. Thesis/Ch 10 baseline matches MATLAB/Octave.
+- **Case 8 (endcap) and cases 10–20 (printer):** Earlier, combo order and duplicate-motion resolution could differ between Python and MATLAB/Octave, leading to different WTR in some cases. The current Python implementation and result files show **full parity** with Octave for all 21 cases (see PROJECT_STATUS_SUMMARY.md and PARKED.md).

@@ -130,9 +130,13 @@ python scripts/visualize_octave_python.py --run
 
 ### Validation status
 
-With atol=1e-3 and rtol=5%, **cases 1–7 and 21** pass consistently. Cases 8–20 may show larger numerical differences (combo order, unique motion ordering, or solver/rounding). All cases run to completion in both Python and Octave.
+With atol=1e-3 and rtol=5%, **all 21 cases pass** (Python vs Octave). The result files in the current workspace have been verified: 21/21 pass. All cases run to completion in both Python and Octave.
 
-### Why do cases 8–20 differ?
+### Parity (combo order and duplicate resolution)
+
+The Python port is aligned with MATLAB/Octave so that combo order and duplicate-motion resolution match, giving **full 21-case parity**. The main alignment points: combo order (lexicographic, matching `nchoosek`), first-occurrence semantics for unique motions, and consistent rounding and solver usage. To re-verify: `python scripts/compare_octave_python.py all`. See [PARKED.md](PARKED.md) and [PROJECT_STATUS_SUMMARY.md](PROJECT_STATUS_SUMMARY.md).
+
+*(The following paragraph is kept for reference on why ordering matters.)*
 
 Cases 1–7 and 21 use **point-only** (or mostly point) constraints; cases 8–9 add endcap geometry (case 8 with no_snap=0 is still cp-only but 24 points); cases 10–20 use **pins and lines** (printer housing). The same analytical method should give the same results up to rounding; the observed differences (e.g. WTR ~1.75 Python vs ~2.44 Octave for cases 10–17) come from one or more of:
 
@@ -145,7 +149,7 @@ Cases 1–7 and 21 use **point-only** (or mostly point) constraints; cases 8–9
 3. **Solver/rounding**  
    Small differences in rank checks, backslash vs `np.linalg.solve`/`pinv`, or rounding (e.g. to 4 decimals) can change R slightly and, after duplicate resolution, change which motion ends up as the worst-case.
 
-So the algorithm is the same; the **ordering** of combos and thus of duplicate resolution is what drives the remaining mismatch for cases 8–20. To get bit-for-bit parity you would need to either (a) sort combo rows in Python to match MATLAB’s `nchoosek` order and/or (b) match the duplicate-resolution rule (e.g. same “first” semantics as MATLAB’s `unique(..., 'rows')`). Until then, 8/21 pass at 5% tolerance; the rest complete but can show larger deviations.
+So the algorithm is the same; the **ordering** of combos and thus of duplicate resolution is what drives the remaining mismatch for cases 8–20. To get bit-for-bit parity you would need to either (a) sort combo rows in Python to match MATLAB’s `nchoosek` order and/or (b) match the duplicate-resolution rule (e.g. same “first” semantics as MATLAB’s `unique(..., 'rows')`). The current Python port matches this; **all 21 cases pass** at 5% tolerance.
 
 ### MATLAB 7.7 verification (optional)
 
