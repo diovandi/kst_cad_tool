@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-16"?>
+<Addin Type="Standard">
+  <ClassId>{E8A1B2C3-D4E5-4F67-8901-234567890ABC}</ClassId>
+  <ClientId>{E8A1B2C3-D4E5-4F67-8901-234567890ABC}</ClientId>
+  <DisplayName>KST Analysis Wizard</DisplayName>
+  <Description>Constraint Definition Wizard for KST assembly rating analysis.</Description>
+  <Assembly>KstAnalysisWizard\KstAnalysisWizardAddIn.dll</Assembly>
+  <Hidden>0</Hidden>
+</Addin>

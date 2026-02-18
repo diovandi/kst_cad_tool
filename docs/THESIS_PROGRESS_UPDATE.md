@@ -1,6 +1,7 @@
 # Thesis Progress Update — Meeting with Supervisor
 
 **Date:** Feb 3, 2025  
+**Update (Feb 2025):** Python now matches Octave for **all 21 cases** (see [PARKED.md](PARKED.md), [PROJECT_STATUS_SUMMARY.md](PROJECT_STATUS_SUMMARY.md)).  
 **Context:** Follow-up to last week’s discussion (rerun original MATLAB, migrate to better platform, optimization as “black box” brute force, motion generating sets, line search / Newton iteration for future work).
 
 ---
@@ -39,10 +40,10 @@ So the “rerun on original platform” is done **using Octave** as a stand-in f
   - `python scripts/run_python_case.py <case_name_or_number>` — runs analysis, writes `results_python_<casename>.txt`.
   - `python scripts/compare_octave_python.py <case_name_or_number>` — runs both Python and Octave, compares WTR/MRR/MTR/TOR (configurable tolerances).
   - `python scripts/compare_octave_python.py all` — runs all 21 cases and reports Pass/Fail.
-- **Validation:** With atol=1e-3, rtol=5%, **cases 1–7 and 21 pass** (Python vs Octave). Cases 8–20 may show larger numerical differences (combo order, unique motion ordering, or solver/rounding); all run to completion. Case 1 (Thompson’s chair, case1a_chair_height) is explicitly validated: WTR=0.191, MRR=1, MTR≈1.0008, TOR≈1.0008 — **exact match** with Octave.
-- **Result files:** Both `results_python_*.txt` and `results_octave_*.txt` exist for the main cases, so the migration is in active use and comparable.
+- **Validation:** With atol=1e-3, rtol=5%, **all 21 cases pass** (Python vs Octave). Case 1 (Thompson’s chair, case1a_chair_height) is explicitly validated: WTR=0.191, MRR=1, MTR≈1.0008, TOR≈1.0008 — **exact match** with Octave.
+- **Result files:** Both `results_python_*.txt` and `results_octave_*.txt` exist for all 21 cases; the migration is in active use and comparable.
 
-So the **migration to Python** is done for the core analysis and the 21-case set; numerical agreement is documented for the subset that passes the comparison (and the rest run without crashing).
+So the **migration to Python** is done for the core analysis and the 21-case set; **full numerical agreement** with Octave for all 21 cases (see PROJECT_STATUS_SUMMARY.md).
 
 ### 2.3 Optimization and Extras (Port from MATLAB)
 
@@ -86,7 +87,7 @@ Details and MATLAB↔Python mapping are in **`docs/MATLAB_TO_PYTHON_COVERAGE.md`
 3. **Optimization:** Brute-force / factorial search is ported; line search / Newton along one parameter is **not** implemented and is a clear next step if he wants to pursue it.
 4. **Motion generating sets:** The Python engine follows the same logic (5 DoF at a time → screw motion; rate resistance); no change to the algorithm, only platform and numerical parity.
 5. **Next steps (suggestions):**  
-   - Tighten parity for cases 8–20 if needed.  
+   - Parity for all 21 cases is achieved (see PARKED.md).  
    - Implement a **one-dimensional line search** (e.g. one CP along a line) as a first step toward smarter search.  
    - Optionally run the same cases on MATLAB 7.7 once available, for a three-way check (MATLAB vs Octave vs Python).
 
@@ -100,7 +101,7 @@ Actions taken and next priorities from the meeting:
 - **Case 8 batch/config:** The comparison script pipes stdin `0` for case 8 so Octave runs the no_snap==0 (cp-only) branch. `run_case_batch.m` now sets `no_snap = 0` for case 8 so non-interactive runs use the same branch. Python loads the first `cp = [ ... ]` block in case4a_endcap_tradeoff.m (no_snap==0). Documented in COMPARISON.md.
 - **MATLAB 7.7 verification (plan):** When available (lab license or legacy install), run the same 21 cases on MATLAB 7.7, record WTR/MRR/MTR/TOR, and compare to Octave. If they match, document that Octave is an acceptable reference for the Python port; if they differ, document differences and choose MATLAB 7.7 or Octave as the canonical reference for 1:1 parity work.
 - **Parallel processing (plan):** Add optional parallel execution for the analysis main loop (e.g. `analyze_constraints_detailed(..., n_workers=4)`) using a process pool to evaluate combo rows or motion ratings in parallel; benchmark and document in MATLAB_TO_PYTHON_COVERAGE.md or a short Performance note.
-- **Next priorities:** (1) Full 1:1 parity for all 21 cases (investigate remaining differences for cases 8–20: combo order, motion uniqueness, or solver/rounding). (2) After stabilization, optimization methods (GA, Newton-style, etc.) as a separate phase.
+- **Next priorities:** (1) Full 1:1 parity for all 21 cases — **achieved** (see PROJECT_STATUS_SUMMARY.md). (2) After stabilization, optimization methods (GA, Newton-style, etc.) as a separate phase. (3) CAD add-in (Inventor) for analysis and optimization wizards.
 
 ---
 
