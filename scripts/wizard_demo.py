@@ -20,8 +20,8 @@ from tkinter import ttk, messagebox, filedialog
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MATLAB_TOOL_DIR = os.path.join(_REPO_ROOT, "matlab_script", "Analysis and design tool")
 
-# Output directory for demo files
-OUTPUT_DIR = os.path.join(os.path.expanduser("~"), "KstAnalysis")
+# Output directory for demo files (kept inside the repo)
+OUTPUT_DIR = os.path.join(_REPO_ROOT, "results", "wizard")
 
 
 def ensure_output_dir():
