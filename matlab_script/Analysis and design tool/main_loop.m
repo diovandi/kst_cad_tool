@@ -38,6 +38,10 @@ end
 mot_hold=[];m=1;
 Rcp_pos=[];Rcp_neg=[];Rcpin=[];Rclin_pos=[];Rclin_neg=[]; Rcpln_pos=[];Rcpln_neg=[];
 combo_dup_idx=zeros(size(combo,1),1);
+% Ensure outputs are always assigned (no combo may have rank 5 with few constraints)
+combo_proc=zeros(0,1+size(combo,2));
+input_wr_proc={};
+d_proc=[];
 
 if dispbar==1
     prog_bar=waitbar(0,'Base Calculation progress'); % Display progress bar
