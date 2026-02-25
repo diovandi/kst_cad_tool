@@ -246,9 +246,9 @@ def run_one_case(
     """Run Python and Octave (or MATLAB) for one case, compare; return True if match."""
     engine_prefix = "matlab" if engine == "matlab" else "octave"
     ref_label = "MATLAB" if engine == "matlab" else "Octave"
-    py_result_path = repo_root / f"results_python_{case_name}.txt"
+    py_result_path = repo_root / "results" / "python" / f"results_python_{case_name}.txt"
     ref_result_path = repo_root / "matlab_script" / f"results_{engine_prefix}_{case_name}.txt"
-    py_full_path = repo_root / f"results_python_{case_name}_full.txt"
+    py_full_path = repo_root / "results" / "python" / f"results_python_{case_name}_full.txt"
     ref_full_path = repo_root / "matlab_script" / f"results_{engine_prefix}_{case_name}_full.txt"
 
     # 1. Run Python
@@ -391,9 +391,9 @@ def main() -> int:
             return 1
         case_num = CASE_NAME_TO_NUM[case_name]
 
-    py_result_path = repo_root / f"results_python_{case_name}.txt"
+    py_result_path = repo_root / "results" / "python" / f"results_python_{case_name}.txt"
     ref_result_path = repo_root / "matlab_script" / f"results_{engine_prefix}_{case_name}.txt"
-    py_full_path = repo_root / f"results_python_{case_name}_full.txt"
+    py_full_path = repo_root / "results" / "python" / f"results_python_{case_name}_full.txt"
     ref_full_path = repo_root / "matlab_script" / f"results_{engine_prefix}_{case_name}_full.txt"
 
     # 1. Run Python

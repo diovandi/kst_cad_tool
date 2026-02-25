@@ -79,7 +79,7 @@ python scripts/run_python_specmot.py <case_name_or_number> [motion_index]
 
 You can run the original MATLAB test cases in Python (by loading the `.m` case files) and in GNU Octave (no MATLAB license required), then compare WTR, MRR, MTR, TOR. See **[docs/COMPARISON.md](docs/COMPARISON.md)** for:
 
-- **Python**: `python scripts/run_python_case.py <case_name_or_number>` (e.g. `1` or `case1a_chair_height`)
+- **Python**: `python scripts/run_python_case.py <case_name_or_number>` (e.g. `1` or `case1a_chair_height`). Results are written to `results/python/results_python_<case>.txt` (and `_full.txt` with `--full`).
 - **Octave**: `cd matlab_script && octave --no-gui run_case_batch.m <case_number>`
 - **Compare**: `python scripts/compare_octave_python.py <case_name_or_number>`
 

@@ -11,8 +11,8 @@ Examples:
   python scripts/run_python_case.py 1 --full
 
 Output:
-  results_python_<casename>.txt in the repository root (for comparison with Octave).
-  With --full: also results_python_<casename>_full.txt (metrics, counts, WTR motion, CP table).
+  results/python/results_python_<casename>.txt (for comparison with Octave).
+  With --full: also results/python/results_python_<casename>_full.txt (metrics, counts, WTR motion, CP table).
 """
 
 from __future__ import annotations
@@ -85,13 +85,13 @@ def main() -> int:
     if full:
         detailed = analyze_constraints_detailed(constraints)
         results = detailed.rating
-        full_path = repo_root / f"results_python_{case_name}_full.txt"
+        full_path = repo_root / "results" / "python" / f"results_python_{case_name}_full.txt"
         write_full_report_txt(detailed, full_path)
         print(f"Wrote {full_path} (full report)")
     else:
         results = analyze_constraints(constraints)
 
-    out_path = repo_root / f"results_python_{case_name}.txt"
+    out_path = repo_root / "results" / "python" / f"results_python_{case_name}.txt"
     with open(out_path, "w") as f:
         f.write(f"WTR\t{results.WTR:.10g}\n")
         f.write(f"MRR\t{results.MRR:.10g}\n")
