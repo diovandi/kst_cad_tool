@@ -11,7 +11,7 @@ Usage:
   python scripts/compare_to_thesis.py all [--matlab]
 
 With no argument, compares case 1 (Thompson) only.
-Reads results_python_<case>_full.txt from repo root and results_octave_ or results_matlab_<case>_full.txt
+Reads results/python/results_python_<case>_full.txt and results_octave_ or results_matlab_<case>_full.txt
 from matlab_script/. With --matlab, uses MATLAB results when available.
 """
 
@@ -201,7 +201,7 @@ def main() -> int:
     lines: list[str] = []
     for case_num, case_name in cases:
         ref = THESIS_REF.get(case_name)
-        py_path = repo_root / f"results_python_{case_name}_full.txt"
+        py_path = repo_root / "results" / "python" / f"results_python_{case_name}_full.txt"
         ref_path = repo_root / "matlab_script" / f"results_{engine_prefix}_{case_name}_full.txt"
         ref_label_this = ref_label
         if not ref_path.is_file() and (repo_root / "matlab_script" / f"results_{alt_prefix}_{case_name}_full.txt").is_file():
@@ -271,7 +271,7 @@ def main() -> int:
         print("Summary vs thesis (cases with Ch 10/11 reference)")
         for _num, name in with_ref:
             ref = THESIS_REF[name]
-            py_path = repo_root / f"results_python_{name}_full.txt"
+            py_path = repo_root / "results" / "python" / f"results_python_{name}_full.txt"
             ref_path = repo_root / "matlab_script" / f"results_{engine_prefix}_{name}_full.txt"
             if not ref_path.is_file() and use_matlab:
                 ref_path = repo_root / "matlab_script" / f"results_{alt_prefix}_{name}_full.txt"

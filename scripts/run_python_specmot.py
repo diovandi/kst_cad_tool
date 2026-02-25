@@ -12,7 +12,7 @@ Example:
   python scripts/run_python_specmot.py case1a_chair_height 1
 
 Output: prints WTR, MRR, MTR, TOR for the specified loading; optionally writes
-  results_python_specmot_<casename>.txt
+  results/python/results_python_specmot_<casename>.txt
 """
 
 from __future__ import annotations
@@ -113,7 +113,7 @@ def main() -> int:
     r = result.rating
     print(f"Specmot (motion index {motion_index}): WTR={r.WTR:.6f} MRR={r.MRR:.6f} MTR={r.MTR:.6f} TOR={r.TOR:.6f}")
 
-    out_path = repo_root / f"results_python_specmot_{case_name}.txt"
+    out_path = repo_root / "results" / "python" / f"results_python_specmot_{case_name}.txt"
     with open(out_path, "w") as f:
         f.write(f"WTR\t{r.WTR:.10g}\n")
         f.write(f"MRR\t{r.MRR:.10g}\n")

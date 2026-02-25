@@ -7,7 +7,7 @@ Usage:
   python scripts/visualize_octave_python.py [--run]
 
   --run   Run Python and Octave for all 21 cases first (like compare all).
-          If omitted, uses existing results_python_*.txt and results_octave_*.txt.
+          If omitted, uses existing results/python/results_python_*.txt and results_octave_*.txt.
 
 Output:
   - docs/octave_python_comparison_raw.csv   Raw numbers (case, WTR/MRR/MTR/TOR Python & Octave, abs/rel diff)
@@ -107,7 +107,7 @@ def collect_results(repo_root: Path) -> list[dict]:
     rows = []
     for case_num in range(1, 22):
         case_name = next(k for k, v in CASE_NAME_TO_NUM.items() if v == case_num)
-        py_path = repo_root / f"results_python_{case_name}.txt"
+        py_path = repo_root / "results" / "python" / f"results_python_{case_name}.txt"
         oct_path = repo_root / "matlab_script" / f"results_octave_{case_name}.txt"
         py_vals = parse_result_file(py_path)
         oct_vals = parse_result_file(oct_path)

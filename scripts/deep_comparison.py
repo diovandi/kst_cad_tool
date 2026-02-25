@@ -96,7 +96,7 @@ def load_result_files(repo_root: Path, case_name: str, use_matlab: bool) -> dict
     for label, prefix, rel_dir in [
         ("matlab", "results_matlab_", "matlab_script"),
         ("octave", "results_octave_", "matlab_script"),
-        ("python", "results_python_", "."),
+        ("python", "results_python_", "results/python"),
     ]:
         if label == "matlab" and not use_matlab:
             out["matlab"] = None
