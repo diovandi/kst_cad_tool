@@ -103,13 +103,16 @@ if isempty(cpln)==0
     end
 end
 
-c=nchoosek(1:size(pts,1),2);
-
-for a=1:size(c,1)
-    distance(a)=((pts(c(a,1),1)-pts(c(a,2),1))^2 + ...
-        (pts(c(a,1),2)-pts(c(a,2),2))^2 +...
-        (pts(c(a,1),3)-pts(c(a,2),3))^2)^.5;
+% nchoosek(N,2) requires N>=2; avoid error when 0 or 1 constraint points
+if size(pts,1) < 2
+    max_d = 0;
+else
+    c=nchoosek(1:size(pts,1),2);
+    for a=1:size(c,1)
+        distance(a)=((pts(c(a,1),1)-pts(c(a,2),1))^2 + ...
+            (pts(c(a,1),2)-pts(c(a,2),2))^2 +...
+            (pts(c(a,1),3)-pts(c(a,2),3))^2)^.5;
+    end
+    max_d=max(distance);
 end
-
-max_d=max(distance);
 
