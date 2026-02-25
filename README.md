@@ -118,7 +118,7 @@ Two tabs: **Analysis Wizard** (constraint table, Select, Analyze → JSON) and *
    python scripts\wizard_demo.py
    ```
 
-   Output files are written to `%USERPROFILE%\KstAnalysis\`.
+   Output files are written under the `results/wizard/` directory in the repo.
 
 ### Status
 
