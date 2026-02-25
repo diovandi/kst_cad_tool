@@ -93,6 +93,33 @@ python scripts/wizard_demo.py
 
 Two tabs: **Analysis Wizard** (constraint table, Select, Analyze → JSON) and **Optimization Wizard** (constraint selection, search space, generate plan, load results). See **[docs/PROJECT_STATUS_SUMMARY.md](docs/PROJECT_STATUS_SUMMARY.md)** for project status.
 
+### Windows Quick Start
+
+1. Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html) for Windows.
+2. Install MATLAB for Windows; during or after install, add its `bin` folder to the system PATH (e.g. `C:\Program Files\MATLAB\R202Xb\bin`). Verify with `matlab -batch "disp('ok')"` in a terminal.
+3. Clone the repo:
+
+   ```bash
+   git clone <remote-url> kst_cad_tool
+   cd kst_cad_tool
+   ```
+
+4. Create and activate the Python environment:
+
+   ```bash
+   conda create -n kst_kst_engine python=3.10 numpy scipy matplotlib pytest -y
+   conda activate kst_kst_engine
+   pip install -e .
+   ```
+
+5. Run the wizard:
+
+   ```bash
+   python scripts\wizard_demo.py
+   ```
+
+   Output files are written to `%USERPROFILE%\KstAnalysis\`.
+
 ### Status
 
 - **Python vs Octave/MATLAB:** **All 21 cases pass** (WTR, MRR, MTR, TOR within atol=1e-3, rtol=5%). See [docs/PARKED.md](docs/PARKED.md) and `python scripts/compare_octave_python.py all`.
