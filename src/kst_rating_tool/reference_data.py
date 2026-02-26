@@ -17,7 +17,7 @@ THESIS_REF: dict[str, dict] = {
         "TOR": 1.001,
         "LAR_WTR": 5.236,
         "LAR_MTR": 0.999,
-        "wtr_motion": [0.000, 0.708, 0.706, 2.000, 1.724, 1.731, 0.001, 0.191],  # omega(3), rho(3), h, TR (thesis table: 8 values; we use 10 for motion + TR)
+        "wtr_motion": [0.000, 0.708, 0.706, 0.000, 0.000, 0.000, 2.000, 1.724, 1.731, 0.001, 0.191],  # Om(3), Mu(3)=0, Rho(3), Pitch=h, TR (thesis table: 8 values; expanded to 11 for motion + TR)
         "no_mot_unique": 21,
         "notes": "Thompson's chair. Thesis WTR motion: omega=(0, 0.708, 0.706), rho=(2, 1.724, 1.731), h=0.001, TR=0.191. Sign of omega/rho may differ.",
     },
