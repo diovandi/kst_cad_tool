@@ -21,7 +21,7 @@ class ScrewMotion:
     h: float
 
     def as_array(self) -> NDArray[np.float64]:
-        return np.concatenate([self.omu, self.mu, self.rho, np.array([self.h], dtype=float)])
+        return np.array([*self.omu, *self.mu, *self.rho, self.h], dtype=float)
 
 
 def specmot_row_to_screw(specmot_row: NDArray[np.float64]) -> ScrewMotion:
@@ -75,12 +75,12 @@ def rec_mot(wrench: NDArray[np.float64]) -> ScrewMotion:
         h = float("inf")
         rho = np.zeros(3, dtype=float)
         muu = mu / np.linalg.norm(mu)
-        mot_arr = np.concatenate([om, muu, rho, np.array([h], dtype=float)])
+        mot_arr = np.array([*om, *muu, *rho, h], dtype=float)
     else:
         h = float(np.dot(mu, om) / np.dot(om, om))
         rho = np.cross(om, mu) / np.dot(om, om)
         omu = om / np.linalg.norm(om)
-        mot_arr = np.concatenate([omu, mu, rho, np.array([h], dtype=float)])
+        mot_arr = np.array([*omu, *mu, *rho, h], dtype=float)
 
     mot_arr = np.round(mot_arr * 1e4) / 1e4
     return ScrewMotion(
