@@ -1,0 +1,4 @@
+{
+  "snapshot": "snapshot-20260226-25f16f8e-cbdf-454e-b5a7-ac78be8da249",
+  "install": "pip install -e \".[dev]\""
+}
