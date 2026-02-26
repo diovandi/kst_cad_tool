@@ -31,6 +31,7 @@
   <ItemGroup>
     <Compile Include="IGeometrySelector.cs" />
     <Compile Include="InputFileGenerator.cs" />
+    <Compile Include="Logger.cs" />
     <Compile Include="AnalysisWizard\ConstraintDefinitionWizard.cs" />
     <Compile Include="OptimizationWizard\OptimizationWizardForm.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
