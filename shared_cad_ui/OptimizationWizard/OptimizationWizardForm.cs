@@ -7,46 +7,46 @@ using System.Web.Script.Serialization;
 
 namespace KstAnalysisWizard
 {
-    public class KstOptimizationFile
-    {
-        public int version { get; set; } = 1;
-        public KstInputFile analysis_input { get; set; }
-        public OptimizationData optimization { get; set; }
-    }
-
-    public class OptimizationData
-    {
-        public List<ModifiedConstraint> modified_constraints { get; set; } = new List<ModifiedConstraint>();
-        public List<CandidateMatrixItem> candidate_matrix { get; set; } = new List<CandidateMatrixItem>();
-    }
-
-    public class ModifiedConstraint
-    {
-        public string type { get; set; }
-        public int index { get; set; }
-        public SearchSpace search_space { get; set; }
-    }
-
-    public class SearchSpace
-    {
-        public string type { get; set; }
-        public double[] origin { get; set; }
-        public double[] direction { get; set; }
-        public int num_steps { get; set; }
-    }
-
-    public class CandidateMatrixItem
-    {
-        public int constraint_index { get; set; }
-        public List<double[]> candidates { get; set; } = new List<double[]>();
-    }
-
     /// <summary>
     /// Optimization Wizard: select constraint to optimize, search space type (discrete/line/plane/orient),
     /// generate candidate matrix and optimization plan JSON; run optimization and show results.
     /// </summary>
     public class OptimizationWizardForm : Form
     {
+        private class KstOptimizationFile
+        {
+            public int version { get; set; } = 1;
+            public KstInputFile analysis_input { get; set; }
+            public OptimizationData optimization { get; set; }
+        }
+
+        private class OptimizationData
+        {
+            public List<ModifiedConstraint> modified_constraints { get; set; } = new List<ModifiedConstraint>();
+            public List<CandidateMatrixItem> candidate_matrix { get; set; } = new List<CandidateMatrixItem>();
+        }
+
+        private class ModifiedConstraint
+        {
+            public string type { get; set; }
+            public int index { get; set; }
+            public SearchSpace search_space { get; set; }
+        }
+
+        private class SearchSpace
+        {
+            public string type { get; set; }
+            public double[] origin { get; set; }
+            public double[] direction { get; set; }
+            public int num_steps { get; set; }
+        }
+
+        private class CandidateMatrixItem
+        {
+            public int constraint_index { get; set; }
+            public List<double[]> candidates { get; set; } = new List<double[]>();
+        }
+
         private ComboBox _comboConstraint;
         private ComboBox _comboSearchType;
         private TextBox _txtNumSteps;
