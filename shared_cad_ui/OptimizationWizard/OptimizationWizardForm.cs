@@ -47,6 +47,40 @@ namespace KstAnalysisWizard
     /// </summary>
     public class OptimizationWizardForm : Form
     {
+        private class KstOptimizationFile
+        {
+            public int version { get; set; } = 1;
+            public KstInputFile analysis_input { get; set; }
+            public OptimizationData optimization { get; set; }
+        }
+
+        private class OptimizationData
+        {
+            public List<ModifiedConstraint> modified_constraints { get; set; } = new List<ModifiedConstraint>();
+            public List<CandidateMatrixItem> candidate_matrix { get; set; } = new List<CandidateMatrixItem>();
+        }
+
+        private class ModifiedConstraint
+        {
+            public string type { get; set; }
+            public int index { get; set; }
+            public SearchSpace search_space { get; set; }
+        }
+
+        private class SearchSpace
+        {
+            public string type { get; set; }
+            public double[] origin { get; set; }
+            public double[] direction { get; set; }
+            public int num_steps { get; set; }
+        }
+
+        private class CandidateMatrixItem
+        {
+            public int constraint_index { get; set; }
+            public List<double[]> candidates { get; set; } = new List<double[]>();
+        }
+
         private ComboBox _comboConstraint;
         private ComboBox _comboSearchType;
         private TextBox _txtNumSteps;
@@ -147,13 +181,19 @@ namespace KstAnalysisWizard
 
                 if (File.Exists(analysisPath))
                 {
+                    var fileContent = File.ReadAllText(analysisPath);
                     try
                     {
-                        optimFile.analysis_input = serializer.Deserialize<KstInputFile>(File.ReadAllText(analysisPath));
+                        optimFile.analysis_input = serializer.Deserialize<KstInputFile>(fileContent);
                     }
-                    catch
+                    catch (InvalidOperationException)
                     {
-                        // Fallback if file is invalid
+                        // Fallback if file format or deserialization fails
+                        optimFile.analysis_input = GetDefaultAnalysisInput();
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Fallback if file format or deserialization fails
                         optimFile.analysis_input = GetDefaultAnalysisInput();
                     }
                 }
