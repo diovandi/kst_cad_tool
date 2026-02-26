@@ -1,17 +1,86 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-using System.Text;
+using System.Web.Script.Serialization;
 
 namespace KstAnalysisWizard
 {
+    internal class KstOptimizationFile
+    {
+        public int version { get; set; } = 1;
+        public KstInputFile analysis_input { get; set; }
+        public OptimizationData optimization { get; set; }
+    }
+
+    internal class OptimizationData
+    {
+        public List<ModifiedConstraint> modified_constraints { get; set; } = new List<ModifiedConstraint>();
+        public List<CandidateMatrixItem> candidate_matrix { get; set; } = new List<CandidateMatrixItem>();
+    }
+
+    internal class ModifiedConstraint
+    {
+        public string type { get; set; }
+        public int index { get; set; }
+        public SearchSpace search_space { get; set; }
+    }
+
+    internal class SearchSpace
+    {
+        public string type { get; set; }
+        public double[] origin { get; set; }
+        public double[] direction { get; set; }
+        public int num_steps { get; set; }
+    }
+
+    internal class CandidateMatrixItem
+    {
+        public int constraint_index { get; set; }
+        public List<double[]> candidates { get; set; } = new List<double[]>();
+    }
+
     /// <summary>
     /// Optimization Wizard: select constraint to optimize, search space type (discrete/line/plane/orient),
     /// generate candidate matrix and optimization plan JSON; run optimization and show results.
     /// </summary>
     public class OptimizationWizardForm : Form
     {
+        private class KstOptimizationFile
+        {
+            public int version { get; set; } = 1;
+            public KstInputFile analysis_input { get; set; }
+            public OptimizationData optimization { get; set; }
+        }
+
+        private class OptimizationData
+        {
+            public List<ModifiedConstraint> modified_constraints { get; set; } = new List<ModifiedConstraint>();
+            public List<CandidateMatrixItem> candidate_matrix { get; set; } = new List<CandidateMatrixItem>();
+        }
+
+        private class ModifiedConstraint
+        {
+            public string type { get; set; }
+            public int index { get; set; }
+            public SearchSpace search_space { get; set; }
+        }
+
+        private class SearchSpace
+        {
+            public string type { get; set; }
+            public double[] origin { get; set; }
+            public double[] direction { get; set; }
+            public int num_steps { get; set; }
+        }
+
+        private class CandidateMatrixItem
+        {
+            public int constraint_index { get; set; }
+            public List<double[]> candidates { get; set; } = new List<double[]>();
+        }
+
         private ComboBox _comboConstraint;
         private ComboBox _comboSearchType;
         private TextBox _txtNumSteps;
@@ -103,47 +172,73 @@ namespace KstAnalysisWizard
                 if (direction == null) direction = new[] { 0.0, 0.0, 1.0 };
                 Normalize(direction);
 
-                var sb = new StringBuilder();
-                sb.Append("{\"version\":1,\"analysis_input\":");
+                var serializer = new JavaScriptSerializer();
+                var optimFile = new KstOptimizationFile();
+
                 var analysisPath = !string.IsNullOrEmpty(_lastAnalysisPath) && File.Exists(_lastAnalysisPath)
                     ? _lastAnalysisPath
                     : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "KstAnalysis", "wizard_input.json");
+
                 if (File.Exists(analysisPath))
-                    sb.Append(File.ReadAllText(analysisPath));
+                {
+                    var fileContent = File.ReadAllText(analysisPath);
+                    try
+                    {
+                        optimFile.analysis_input = serializer.Deserialize<KstInputFile>(fileContent);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // Fallback if file format or deserialization fails
+                        optimFile.analysis_input = GetDefaultAnalysisInput();
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Fallback if file format or deserialization fails
+                        optimFile.analysis_input = GetDefaultAnalysisInput();
+                    }
+                }
                 else
-                    sb.Append("{\"version\":1,\"point_contacts\":[[0,0,0,0,0,1]],\"pins\":[],\"lines\":[],\"planes\":[]}");
-                sb.Append(",\"optimization\":{\"modified_constraints\":[{\"type\":\"point\",\"index\":");
-                sb.Append(constraintIndex);
-                sb.Append(",\"search_space\":{\"type\":\"line\",\"origin\":[");
-                sb.Append(string.Join(",", origin));
-                sb.Append("],\"direction\":[");
-                sb.Append(string.Join(",", direction));
-                sb.Append("],\"num_steps\":");
-                sb.Append(steps);
-                sb.Append("}}],\"candidate_matrix\":[{\"constraint_index\":");
-                sb.Append(constraintIndex);
-                sb.Append(",\"candidates\":[");
+                {
+                    optimFile.analysis_input = GetDefaultAnalysisInput();
+                }
+
+                var modCon = new ModifiedConstraint
+                {
+                    type = "point",
+                    index = constraintIndex,
+                    search_space = new SearchSpace
+                    {
+                        type = "line",
+                        origin = origin,
+                        direction = direction,
+                        num_steps = steps
+                    }
+                };
+
+                var candItem = new CandidateMatrixItem
+                {
+                    constraint_index = constraintIndex
+                };
+
                 for (int k = 0; k <= steps; k++)
                 {
                     double t = (double)k / steps;
                     double x = origin[0] + t * direction[0];
                     double y = origin[1] + t * direction[1];
                     double z = origin[2] + t * direction[2];
-                    sb.Append("[");
-                    sb.Append(x.ToString("G", System.Globalization.CultureInfo.InvariantCulture));
-                    sb.Append(",");
-                    sb.Append(y.ToString("G", System.Globalization.CultureInfo.InvariantCulture));
-                    sb.Append(",");
-                    sb.Append(z.ToString("G", System.Globalization.CultureInfo.InvariantCulture));
-                    sb.Append(",0,0,-1]");
-                    if (k < steps) sb.Append(",");
+                    candItem.candidates.Add(new[] { x, y, z, 0.0, 0.0, -1.0 });
                 }
-                sb.Append("]}]}}");
+
+                optimFile.optimization = new OptimizationData();
+                optimFile.optimization.modified_constraints.Add(modCon);
+                optimFile.optimization.candidate_matrix.Add(candItem);
+
+                var json = serializer.Serialize(optimFile);
 
                 var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "KstAnalysis");
                 Directory.CreateDirectory(dir);
                 var path = Path.Combine(dir, "wizard_optimization.json");
-                File.WriteAllText(path, sb.ToString());
+                File.WriteAllText(path, json);
                 _lastAnalysisPath = Path.Combine(dir, "wizard_input.json");
                 _lblStatus.Text = "Optimization plan written to:\r\n" + path;
             }
@@ -156,8 +251,20 @@ namespace KstAnalysisWizard
                 else
                 {
                     _lblStatus.Text = "An unexpected error occurred.";
+                bool logged = Logger.LogError(ex);
+                _lblStatus.Text = "An unexpected error occurred. Details were written to the log file:\r\n" + Logger.LogPath;
+                if (!logged)
+                {
+                    _lblStatus.Text += "\r\n(Note: Failed to write to log file)";
                 }
             }
+        }
+
+        private KstInputFile GetDefaultAnalysisInput()
+        {
+            var input = new KstInputFile();
+            input.point_contacts.Add(new[] { 0.0, 0.0, 0.0, 0.0, 0.0, 1.0 });
+            return input;
         }
 
         private void BtnRun_Click(object sender, EventArgs e)

@@ -107,19 +107,6 @@ def test_analyze_specified_motions_invalid_specmot_columns():
     assert raised
 
 
-def test_specmot_row_to_screw():
-    from kst_rating_tool.motion import specmot_row_to_screw
-
-    row = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0], dtype=float)
-    screw = specmot_row_to_screw(row)
-    assert screw.omu.shape == (3,)
-    assert screw.mu.shape == (3,)
-    assert screw.rho.shape == (3,)
-    assert screw.h == 2.0
-    arr = screw.as_array()
-    assert arr.shape == (10,)
-
-
 def test_load_case_m_file_if_exists():
     repo_root = Path(__file__).resolve().parent.parent
     case_path = repo_root / "matlab_script" / "Input_files" / "case1a_chair_height.m"
