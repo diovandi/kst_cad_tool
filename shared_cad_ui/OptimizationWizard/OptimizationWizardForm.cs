@@ -7,27 +7,27 @@ using System.Web.Script.Serialization;
 
 namespace KstAnalysisWizard
 {
-    public class KstOptimizationFile
+    internal class KstOptimizationFile
     {
         public int version { get; set; } = 1;
         public KstInputFile analysis_input { get; set; }
         public OptimizationData optimization { get; set; }
     }
 
-    public class OptimizationData
+    internal class OptimizationData
     {
         public List<ModifiedConstraint> modified_constraints { get; set; } = new List<ModifiedConstraint>();
         public List<CandidateMatrixItem> candidate_matrix { get; set; } = new List<CandidateMatrixItem>();
     }
 
-    public class ModifiedConstraint
+    internal class ModifiedConstraint
     {
         public string type { get; set; }
         public int index { get; set; }
         public SearchSpace search_space { get; set; }
     }
 
-    public class SearchSpace
+    internal class SearchSpace
     {
         public string type { get; set; }
         public double[] origin { get; set; }
@@ -35,7 +35,7 @@ namespace KstAnalysisWizard
         public int num_steps { get; set; }
     }
 
-    public class CandidateMatrixItem
+    internal class CandidateMatrixItem
     {
         public int constraint_index { get; set; }
         public List<double[]> candidates { get; set; } = new List<double[]>();
