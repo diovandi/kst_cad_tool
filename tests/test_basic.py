@@ -1,6 +1,7 @@
 """Basic tests for KST rating tool pipeline and API."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -12,6 +13,7 @@ from kst_rating_tool import (
     analyze_specified_motions,
 )
 from kst_rating_tool.combination import combo_preproc
+from kst_rating_tool.motion import ScrewMotion
 from kst_rating_tool.rating import aggregate_ratings
 
 
@@ -118,3 +120,95 @@ def test_load_case_m_file_if_exists():
     assert cs.total_cp >= 1
     results = analyze_constraints(cs)
     assert np.isfinite(results.WTR) or np.isinf(results.WTR)
+
+
+def _make_fixed_screw_motion() -> ScrewMotion:
+    """Return a fixed ScrewMotion whose as_array() gives a stable 10-element vector."""
+    omu = np.array([0.0, 0.0, 1.0])
+    mu = np.array([0.0, 0.0, 0.0])
+    rho = np.array([0.0, 0.0, 0.0])
+    return ScrewMotion(omu=omu, mu=mu, rho=rho, h=np.inf)
+
+
+def _make_multi_point_cs(n: int = 7) -> ConstraintSet:
+    """Return a ConstraintSet with n evenly-spaced PointConstraints (generates > 1 combo)."""
+    angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    return ConstraintSet(
+        points=[
+            PointConstraint(
+                position=np.array([np.cos(a), np.sin(a), 0.0]),
+                normal=np.array([0.0, 0.0, 1.0]),
+            )
+            for a in angles
+        ]
+    )
+
+
+def test_duplicate_motion_skipped_sequential():
+    """Duplicate motions are skipped; combo_dup_idx uses 1-based indexing where 0 means unique
+    and a positive value points to the index of the first occurrence of that motion."""
+    cs = _make_multi_point_cs(7)
+    fixed_mot = _make_fixed_screw_motion()
+    fixed_arr = fixed_mot.as_array().ravel()
+    fixed_arr = np.round(fixed_arr * 1e4) / 1e4
+
+    dummy_rating = np.ones(cs.total_cp, dtype=float) * np.inf
+    dummy_input_wr = np.zeros((6, 1))
+    dummy_W = np.ones((6, 5))  # non-empty, rank check is patched
+
+    with (
+        patch("kst_rating_tool.pipeline.form_combo_wrench", return_value=dummy_W),
+        patch("kst_rating_tool.pipeline.matlab_rank", return_value=5),
+        patch("kst_rating_tool.pipeline.rec_mot", return_value=fixed_mot),
+        patch("kst_rating_tool.pipeline.input_wr_compose", return_value=(dummy_input_wr, None)),
+        patch("kst_rating_tool.pipeline.react_wr_5_compose", return_value=np.zeros((5, 6))),
+        patch(
+            "kst_rating_tool.pipeline._rate_motion_all_constraints",
+            return_value=(dummy_rating, dummy_rating, dummy_rating, dummy_rating, dummy_rating, dummy_rating, dummy_rating),
+        ),
+    ):
+        detailed = analyze_constraints_detailed(cs, n_workers=1)
+
+    # Only one unique motion should be stored
+    assert detailed.mot_half.shape[0] == 1
+    assert np.allclose(detailed.mot_half[0], fixed_arr)
+
+    # All combos beyond the first that were processed should be flagged as duplicates
+    dup_mask = detailed.combo_dup_idx > 0
+    assert dup_mask.sum() > 0, "Expected at least one duplicate combo_dup_idx entry"
+    # All duplicate indices must point to the first unique motion (1-based index = 1)
+    assert np.all(detailed.combo_dup_idx[dup_mask] == 1)
+
+
+def test_duplicate_motion_skipped_parallel():
+    """Same duplicate-detection check via the n_workers>1 path."""
+    from unittest.mock import MagicMock
+
+    cs = _make_multi_point_cs(7)
+    combo = combo_preproc(cs)
+    n_combo = combo.shape[0]
+
+    fixed_mot = _make_fixed_screw_motion()
+    fixed_arr = np.round(fixed_mot.as_array().ravel() * 1e4) / 1e4
+
+    dummy_rating = np.ones(cs.total_cp, dtype=float) * np.inf
+    dummy_R_two = np.full((2, cs.total_cp), np.inf)
+
+    # Build fake chunk results: every combo produces the same motion
+    fake_chunk_results = [[(i, fixed_arr.copy(), dummy_R_two) for i in range(n_combo)]]
+
+    mock_pool = MagicMock()
+    mock_pool.__enter__ = lambda s: s
+    mock_pool.__exit__ = MagicMock(return_value=False)
+    mock_pool.map.return_value = fake_chunk_results
+
+    with patch("kst_rating_tool.pipeline.Pool", return_value=mock_pool):
+        detailed = analyze_constraints_detailed(cs, n_workers=2)
+
+    # Only one unique motion should be stored
+    assert detailed.mot_half.shape[0] == 1
+    assert np.allclose(detailed.mot_half[0], fixed_arr)
+
+    dup_mask = detailed.combo_dup_idx > 0
+    assert dup_mask.sum() > 0, "Expected at least one duplicate combo_dup_idx entry"
+    assert np.all(detailed.combo_dup_idx[dup_mask] == 1)
