@@ -95,7 +95,7 @@ def _rate_motion_all_constraints(
     clin: NDArray[np.float64],
     cpln: NDArray[np.float64],
     cpln_prop: NDArray[np.float64],
-) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """Build one motion's Rcp_pos, Rcp_neg, Rcpin, Rclin_pos, Rclin_neg, Rcpln_pos, Rcpln_neg (match main_loop.m)."""
     no_cp, no_cpin, no_clin, no_cpln = cp.shape[0], cpin.shape[0], clin.shape[0], cpln.shape[0]
     Rcp_pos = np.full(no_cp, np.inf, dtype=float)
@@ -314,9 +314,6 @@ def analyze_constraints_detailed(
             mot_hold.append(mot_row.ravel().copy())
             combo_proc_indices.append(combo_i + 1)
             combo_proc_rows_list.append(combo[combo_i])
-            mot_seen_dict[mot_tuple] = len(mot_hold)
-            mot_hold.append(mot_flat.copy())
-            combo_proc_rows.append(np.array([combo_i + 1, *combo[combo_i]], dtype=np.int_))
             Rcp_pos_rows.append(R_two_rows[0, :no_cp])
             Rcp_neg_rows.append(R_two_rows[1, :no_cp])
             Rcpin_rows.append(R_two_rows[0, no_cp : no_cp + no_cpin])
@@ -358,13 +355,9 @@ def analyze_constraints_detailed(
             Rclin_neg_rows.append(rclin_neg)
             Rcpln_pos_rows.append(rcpln_pos)
             Rcpln_neg_rows.append(rcpln_neg)
-            mot_map[mot_tuple] = len(mot_hold)
             mot_hold.append(mot_row.ravel().copy())
             combo_proc_indices.append(combo_i + 1)
             combo_proc_rows_list.append(combo_row)
-            mot_seen_dict[mot_tuple] = len(mot_hold)
-            mot_hold.append(mot_flat.copy())
-            combo_proc_rows.append(np.array([combo_i + 1, *combo_row], dtype=np.int_))
 
     if not mot_hold:
         R = np.full((1, max(1, total_cp)), np.inf, dtype=float)
