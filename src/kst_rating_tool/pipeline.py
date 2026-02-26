@@ -171,12 +171,13 @@ def analyze_constraints(
         for lst in chunk_results:
             all_results.extend(lst)
         all_results.sort(key=lambda x: x[0])
+        mot_seen = set()
         for combo_i, mot_arr, R_two_rows in all_results:
             mot_row = mot_arr.reshape(1, -1)
-            if mot_hold:
-                already = np.any(np.all(np.vstack(mot_hold) == mot_row, axis=1))
-                if already:
-                    continue
+            mot_tuple = tuple(mot_row.ravel())
+            if mot_tuple in mot_seen:
+                continue
+            mot_seen.add(mot_tuple)
             mot_hold.append(mot_row.ravel().copy())
             Rcp_pos_rows.append(R_two_rows[0, :no_cp])
             Rcp_neg_rows.append(R_two_rows[1, :no_cp])
@@ -186,6 +187,7 @@ def analyze_constraints(
             Rcpln_pos_rows.append(R_two_rows[0, no_cp + no_cpin + no_clin : total_cp])
             Rcpln_neg_rows.append(R_two_rows[1, no_cp + no_cpin + no_clin : total_cp])
     else:
+        mot_seen = set()
         for combo_row in combo:
             W = form_combo_wrench(wr_all, combo_row)
             if W.size == 0:
@@ -197,12 +199,10 @@ def analyze_constraints(
             mot_arr = mot.as_array().ravel()
             mot_arr = np.round(mot_arr * 1e4) / 1e4
             mot_row = mot_arr.reshape(1, -1)
-            if mot_hold:
-                already = np.any(
-                    np.all(np.vstack(mot_hold) == mot_row, axis=1)
-                )
-                if already:
-                    continue
+            mot_tuple = tuple(mot_row.ravel())
+            if mot_tuple in mot_seen:
+                continue
+            mot_seen.add(mot_tuple)
             mot_hold.append(mot_row.ravel().copy())
 
             input_wr, _ = input_wr_compose(mot, pts, max_d)
@@ -298,16 +298,16 @@ def analyze_constraints_detailed(
         for lst in chunk_results_d:
             all_results_d.extend(lst)
         all_results_d.sort(key=lambda x: x[0])
+        mot_map = {}
         for combo_i, mot_arr, R_two_rows in all_results_d:
             mot_row = mot_arr.reshape(1, -1)
-            if mot_hold:
-                already_arr = np.all(np.vstack(mot_hold) == mot_row, axis=1)
-                already = np.any(already_arr)
-                if already:
-                    idx_existing = int(np.argmax(already_arr))
-                    combo_dup_idx[combo_i] = idx_existing + 1
-                    continue
+            mot_tuple = tuple(mot_row.ravel())
+            if mot_tuple in mot_map:
+                idx_existing = mot_map[mot_tuple]
+                combo_dup_idx[combo_i] = idx_existing + 1
+                continue
             combo_dup_idx[combo_i] = 0
+            mot_map[mot_tuple] = len(mot_hold)
             mot_hold.append(mot_row.ravel().copy())
             combo_proc_rows.append(np.concatenate([[combo_i + 1], combo[combo_i]]).astype(np.int_))
             Rcp_pos_rows.append(R_two_rows[0, :no_cp])
@@ -318,6 +318,7 @@ def analyze_constraints_detailed(
             Rcpln_pos_rows.append(R_two_rows[0, no_cp + no_cpin + no_clin : total_cp])
             Rcpln_neg_rows.append(R_two_rows[1, no_cp + no_cpin + no_clin : total_cp])
     else:
+        mot_map = {}
         for combo_i, combo_row in enumerate(combo):
             W = form_combo_wrench(wr_all_list, combo_row)
             if W.size == 0:
@@ -329,13 +330,12 @@ def analyze_constraints_detailed(
             mot_arr = mot.as_array().ravel()
             mot_arr = np.round(mot_arr * 1e4) / 1e4
             mot_row = mot_arr.reshape(1, -1)
+            mot_tuple = tuple(mot_row.ravel())
 
-            if mot_hold:
-                already = np.any(np.all(np.vstack(mot_hold) == mot_row, axis=1))
-                if already:
-                    idx_existing = np.argmax(np.all(np.vstack(mot_hold) == mot_row, axis=1))
-                    combo_dup_idx[combo_i] = idx_existing + 1
-                    continue
+            if mot_tuple in mot_map:
+                idx_existing = mot_map[mot_tuple]
+                combo_dup_idx[combo_i] = idx_existing + 1
+                continue
             combo_dup_idx[combo_i] = 0
 
             input_wr, _ = input_wr_compose(mot, pts, max_d)
@@ -350,6 +350,7 @@ def analyze_constraints_detailed(
             Rclin_neg_rows.append(rclin_neg)
             Rcpln_pos_rows.append(rcpln_pos)
             Rcpln_neg_rows.append(rcpln_neg)
+            mot_map[mot_tuple] = len(mot_hold)
             mot_hold.append(mot_row.ravel().copy())
             combo_proc_rows.append(np.concatenate([[combo_i + 1], combo_row]).astype(np.int_))
 
