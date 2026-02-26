@@ -1,6 +1,5 @@
 
 import numpy as np
-import pytest
 from kst_rating_tool.constraints import (
     ConstraintSet,
     PointConstraint,
