@@ -83,7 +83,7 @@ namespace KstAnalysisWizard
             _resultsGrid.Columns.Add("MTR", "MTR");
             _resultsGrid.Columns.Add("TOR", "TOR");
 
-            _lblStatus = new Label { Dock = DockStyle.Fill, AutoSize = false, Padding = new Padding(8), Text = "Load analysis input or generate plan, then run optimization (MATLAB)." };
+            _lblStatus = new Label { Dock = DockStyle.Fill, AutoSize = false, Padding = new Padding(8), Text = "Load analysis input or generate plan, then run optimization (MATLAB or Python)." };
 
             Controls.Add(_lblStatus);
             Controls.Add(_resultsGrid);
@@ -155,7 +155,7 @@ namespace KstAnalysisWizard
 
         private void BtnRun_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("Run MATLAB script run_wizard_optimization.m with the generated wizard_optimization.json path. Results will be in results_wizard_optim.txt. Then click Load results.", "Run optimization");
+            MessageBox.Show("Run MATLAB script run_wizard_optimization.m or Python optimization with the generated wizard_optimization.json path. Results will be in results_wizard_optim.txt. Then click Load results.", "Run optimization");
         }
 
         private void BtnLoadResults_Click(object sender, EventArgs e)
@@ -163,7 +163,7 @@ namespace KstAnalysisWizard
             var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "KstAnalysis", "results_wizard_optim.txt");
             if (!File.Exists(path))
             {
-                _lblStatus.Text = "Results file not found. Run optimization first (MATLAB run_wizard_optimization.m).";
+                _lblStatus.Text = "Results file not found. Run optimization first (MATLAB run_wizard_optimization.m or Python).";
                 return;
             }
             _resultsGrid.Rows.Clear();

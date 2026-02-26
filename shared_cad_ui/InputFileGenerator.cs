@@ -7,7 +7,7 @@ namespace KstAnalysisWizard
 {
     /// <summary>
     /// Generates KST analysis input file from wizard constraint table.
-    /// Output format: JSON (generic format for analysis script) or MATLAB .m (legacy).
+    /// Output format: JSON (generic format for analysis script).
     /// </summary>
     public static class InputFileGenerator
     {
@@ -52,25 +52,13 @@ namespace KstAnalysisWizard
             return path;
         }
 
-        /// <summary>
-        /// Run MATLAB or compiled executable with the given input file path.
-        /// Option A: Process.Start("matlab", "-batch \"run_analysis('path')\"");
-        /// Option B: MATLAB Engine API for .NET (requires MATLAB Runtime).
-        /// </summary>
-        public static void RunMatlabAnalysis(string inputFilePath)
-        {
-            // TODO: Configure MATLAB path or compiled exe path (e.g. from settings or env).
-            // Process.Start(new ProcessStartInfo { FileName = "matlab.exe", Arguments = "-batch \"..." });
-            throw new NotImplementedException("MATLAB execution not yet configured. Use docs/MATLAB_INTEGRATION.md.");
-        }
-
         private static double[] ParseDoubles(string s, int expectedCount)
         {
             var parts = s.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < expectedCount) return null;
             var d = new double[expectedCount];
             for (int i = 0; i < expectedCount; i++)
-                if (!double.TryParse(parts[i], out d[i])) return null;
+                if (!double.TryParse(parts[i], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out d[i])) return null;
             return d;
         }
     }

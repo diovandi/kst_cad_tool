@@ -95,7 +95,8 @@ namespace KstAnalysisWizard
         {
             try
             {
-                var wizard = new ConstraintDefinitionWizard(_inventorApp);
+                var selector = new InvGeometrySelector(_inventorApp);
+                var wizard = new ConstraintDefinitionWizard(selector);
                 wizard.ShowDialog();
             }
             catch (Exception ex)

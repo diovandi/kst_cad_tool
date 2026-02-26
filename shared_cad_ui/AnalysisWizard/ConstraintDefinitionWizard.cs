@@ -1,19 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using Inventor;
 
 namespace KstAnalysisWizard
 {
     /// <summary>
     /// Constraint Definition Wizard dialog. Shows a table with columns:
     /// Type (Point/Pin/Line/Plane), Location (Select), Orientation (Select).
-    /// User selects geometry in the CAD model; coordinates populate the table.
-    /// "Analyze" generates the input file and runs MATLAB (or compiled executable).
+    /// Uses IGeometrySelector for CAD-specific geometry picking; coordinates populate the table.
+    /// "Analyze" generates the input file (JSON) for the Python/MATLAB backend.
     /// </summary>
     public class ConstraintDefinitionWizard : Form
     {
-        private readonly Inventor.Application _inventorApp;
+        private readonly IGeometrySelector _geometrySelector;
         private DataGridView _constraintGrid;
         private Button _btnAnalyze;
         private Button _btnAddRow;
@@ -21,9 +20,10 @@ namespace KstAnalysisWizard
         private Label _lblResults;
         private int _nextRowIndex = 1;
 
-        public ConstraintDefinitionWizard(Inventor.Application inventorApp)
+        /// <summary>Create wizard with the given geometry selector (provided by the CAD add-in).</summary>
+        public ConstraintDefinitionWizard(IGeometrySelector geometrySelector)
         {
-            _inventorApp = inventorApp;
+            _geometrySelector = geometrySelector ?? throw new ArgumentNullException("geometrySelector");
             InitializeComponent();
         }
 
@@ -89,12 +89,28 @@ namespace KstAnalysisWizard
 
         private void SelectLocation(int rowIndex)
         {
-            MessageBox.Show("Select a point or face in the model for location.\n\nGeometry selection will use Inventor SelectSet/InteractionEvents; implement in add-in with Inventor API.", "Select Location");
+            var pt = _geometrySelector.SelectPoint("Select a point or face center for constraint location.");
+            if (pt == null || pt.Location == null || pt.Location.Length < 3) return;
+            var locStr = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:G}, {1:G}, {2:G}", pt.Location[0], pt.Location[1], pt.Location[2]);
+            _constraintGrid.Rows[rowIndex].Cells[1].Value = locStr;
         }
 
         private void SelectOrientation(int rowIndex)
         {
-            MessageBox.Show("Select a face (for normal) or edge (for axis) in the model for orientation.\n\nImplement with Inventor API Face.Evaluator.GetNormal or edge direction.", "Select Orientation");
+            // Prefer axis (edge/cylinder) for direction; fallback to plane normal (face).
+            var axis = _geometrySelector.SelectAxis("Select an edge or cylindrical face for constraint orientation (axis).");
+            if (axis != null && axis.Location != null && axis.Location.Length >= 3 && axis.Direction != null && axis.Direction.Length >= 3)
+            {
+                var orientStr = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:G}, {1:G}, {2:G}", axis.Direction[0], axis.Direction[1], axis.Direction[2]);
+                _constraintGrid.Rows[rowIndex].Cells[2].Value = orientStr;
+                return;
+            }
+            var plane = _geometrySelector.SelectPlane("Select a face for constraint normal (orientation).");
+            if (plane != null && plane.Normal != null && plane.Normal.Length >= 3)
+            {
+                var orientStr = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:G}, {1:G}, {2:G}", plane.Normal[0], plane.Normal[1], plane.Normal[2]);
+                _constraintGrid.Rows[rowIndex].Cells[2].Value = orientStr;
+            }
         }
 
         private void AddConstraintRow()
@@ -114,7 +130,7 @@ namespace KstAnalysisWizard
             try
             {
                 var path = InputFileGenerator.WriteInputFile(_constraintGrid);
-                _lblResults.Text = "Input file written to:\r\n" + path + "\r\n\r\nRun MATLAB or compiled executable to analyze. Integration coming next.";
+                _lblResults.Text = "Input file written to:\r\n" + path + "\r\n\r\nRun Python (kst_rating_tool) or MATLAB to analyze.";
             }
             catch (Exception ex)
             {
