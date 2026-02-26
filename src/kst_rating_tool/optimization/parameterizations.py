@@ -107,9 +107,8 @@ class Orientation1DParameterization:
         n_pt = len(base.points)
         n_pin = len(base.pins)
         n_lin = len(base.lines)
-        if constraint_index < n_pt:
-            raise ValueError("constraint_index must be a pin or line")
-        if constraint_index >= n_pt + n_pin + n_lin:
+        # Valid range: pins [n_pt, n_pt+n_pin) and lines [n_pt+n_pin, n_pt+n_pin+n_lin); reject points and planes
+        if not (n_pt <= constraint_index < n_pt + n_pin + n_lin):
             raise ValueError("constraint_index must be a pin or line")
 
     def _rodrigues(self, v: np.ndarray, axis: np.ndarray, angle: float) -> np.ndarray:

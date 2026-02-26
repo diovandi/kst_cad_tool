@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "description": "Whiteboard mounted with 4 screws at corners. Origin at bottom-left screw. Coordinates in cm; 60x45 cm board.",
+  "point_contacts": [
+    [0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
+    [60.0, 0.0, 0.0, 0.0, 0.0, -1.0],
+    [0.0, 45.0, 0.0, 0.0, 0.0, -1.0],
+    [60.0, 45.0, 0.0, 0.0, 0.0, -1.0]
+  ],
+  "pins": [],
+  "lines": [],
+  "planes": []
+}
