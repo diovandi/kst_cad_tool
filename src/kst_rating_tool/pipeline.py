@@ -172,9 +172,10 @@ def analyze_constraints(
         for lst in chunk_results:
             all_results.extend(lst)
         all_results.sort(key=lambda x: x[0])
+        mot_seen = set()
         for combo_i, mot_arr, R_two_rows in all_results:
             mot_row = mot_arr.reshape(1, -1)
-            mot_tuple = tuple(mot_arr)
+            mot_tuple = tuple(mot_row.ravel())
             if mot_tuple in mot_seen:
                 continue
             mot_seen.add(mot_tuple)
@@ -187,6 +188,7 @@ def analyze_constraints(
             Rcpln_pos_rows.append(R_two_rows[0, no_cp + no_cpin + no_clin : total_cp])
             Rcpln_neg_rows.append(R_two_rows[1, no_cp + no_cpin + no_clin : total_cp])
     else:
+        mot_seen = set()
         for combo_row in combo:
             W = form_combo_wrench(wr_all, combo_row)
             if W.size == 0:
@@ -198,7 +200,7 @@ def analyze_constraints(
             mot_arr = mot.as_array().ravel()
             mot_arr = np.round(mot_arr * 1e4) / 1e4
             mot_row = mot_arr.reshape(1, -1)
-            mot_tuple = tuple(mot_arr)
+            mot_tuple = tuple(mot_row.ravel())
             if mot_tuple in mot_seen:
                 continue
             mot_seen.add(mot_tuple)
@@ -299,10 +301,10 @@ def analyze_constraints_detailed(
         for lst in chunk_results_d:
             all_results_d.extend(lst)
         all_results_d.sort(key=lambda x: x[0])
-        mot_to_idx = {}
+        mot_map = {}
         for combo_i, mot_arr, R_two_rows in all_results_d:
             mot_row = mot_arr.reshape(1, -1)
-            mot_tuple = tuple(mot_arr)
+            mot_tuple = tuple(mot_row.ravel())
             if mot_tuple in mot_map:
                 idx_existing = mot_map[mot_tuple]
                 combo_dup_idx[combo_i] = idx_existing + 1
@@ -323,6 +325,7 @@ def analyze_constraints_detailed(
             Rcpln_pos_rows.append(R_two_rows[0, no_cp + no_cpin + no_clin : total_cp])
             Rcpln_neg_rows.append(R_two_rows[1, no_cp + no_cpin + no_clin : total_cp])
     else:
+        mot_map = {}
         for combo_i, combo_row in enumerate(combo):
             W = form_combo_wrench(wr_all_list, combo_row)
             if W.size == 0:
@@ -355,6 +358,7 @@ def analyze_constraints_detailed(
             Rclin_neg_rows.append(rclin_neg)
             Rcpln_pos_rows.append(rcpln_pos)
             Rcpln_neg_rows.append(rcpln_neg)
+            mot_map[mot_tuple] = len(mot_hold)
             mot_hold.append(mot_row.ravel().copy())
             combo_proc_indices.append(combo_i + 1)
             combo_proc_rows_list.append(combo_row)
