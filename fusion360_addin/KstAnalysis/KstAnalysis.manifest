@@ -1,0 +1,8 @@
+{
+  "id": "KstAnalysis",
+  "name": "KST Analysis Wizard",
+  "description": "KST Constraint Analysis and Optimization Wizard for Fusion 360. Define constraints from the model and run assembly rating analysis.",
+  "version": "1.0.0",
+  "author": "KST CAD Tool",
+  "run": "KstAnalysis.py"
+}
