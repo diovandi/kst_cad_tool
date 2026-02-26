@@ -152,7 +152,12 @@ namespace KstAnalysisWizard
                     {
                         optimFile.analysis_input = serializer.Deserialize<KstInputFile>(fileContent);
                     }
-                    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+                    catch (InvalidOperationException)
+                    {
+                        // Fallback if file format or deserialization fails
+                        optimFile.analysis_input = GetDefaultAnalysisInput();
+                    }
+                    catch (ArgumentException)
                     {
                         // Fallback if file format or deserialization fails
                         optimFile.analysis_input = GetDefaultAnalysisInput();
