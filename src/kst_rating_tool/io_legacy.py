@@ -16,6 +16,47 @@ def _parse_matlab_vector(s: str) -> np.ndarray:
     return np.array([float(x) for x in parts], dtype=float)
 
 
+def _collect_numbered_vars(
+    content: str,
+    prefix: str,
+    cols_per_row: int,
+) -> dict[str, np.ndarray]:
+    """Find all occurrences of prefixN = [ ... ]; and return them as a dict."""
+    pattern = re.compile(
+        rf"{re.escape(prefix)}(\d+)\s*=\s*\[\s*([^]]+)\]\s*;",
+        re.IGNORECASE,
+    )
+    vars_dict: dict[str, np.ndarray] = {}
+    for m in pattern.finditer(content):
+        name = prefix + m.group(1)
+        vec = _parse_matlab_vector(m.group(2))
+        if vec.size == cols_per_row:
+            vars_dict[name] = vec
+    return vars_dict
+
+
+def _parse_matlab_matrix_from_refs(
+    inner: str,
+    vars_dict: dict[str, np.ndarray],
+    error_on_missing: bool = False,
+) -> list[np.ndarray] | None:
+    """Parse a MATLAB matrix from a string of variable references (e.g., 'cp1; cp2; ...')."""
+    # Remove MATLAB line continuation "..." so "cp10;... cp11" -> "cp10; cp11"
+    inner = re.sub(r"\.\.\.\s*", " ", inner)
+    refs = re.split(r"\s*;\s*", inner)
+    rows = []
+    for ref in refs:
+        ref = ref.strip()
+        if not ref:
+            continue
+        if ref not in vars_dict:
+            if error_on_missing:
+                raise ValueError(f"Unknown variable in MATLAB assignment: {ref}")
+            return None
+        rows.append(vars_dict[ref])
+    return rows
+
+
 def _parse_cp_only_m_file(text: str) -> np.ndarray:
     """Parse cp-only .m file content; return cp as (n, 6) with position and normal columns.
     Handles: cp1 = [ ... ]; ... cp = [cp1;cp2;...];  or  cp = [ row1; row2; ... ];
@@ -45,26 +86,13 @@ def _parse_cp_only_m_file(text: str) -> np.ndarray:
             raise ValueError("No 'cp = [ ... ];' found in file")
         content_before_assign = content[: m_assign.start()]
 
-    cp_vars: dict[str, np.ndarray] = {}
-    for m in re.finditer(r"cp(\d+)\s*=\s*\[\s*([^]]+)\]\s*;", content_before_assign):
-        name = "cp" + m.group(1)
-        vec = _parse_matlab_vector(m.group(2))
-        if vec.size == 6:
-            cp_vars[name] = vec
+    cp_vars = _collect_numbered_vars(content_before_assign, "cp", 6)
 
     inner = m_assign.group(1).strip()
-    # Remove MATLAB line continuation "..." so "cp10;... cp11" -> "cp10; cp11"
-    inner = re.sub(r"\.\.\.\s*", " ", inner)
     # Check if it's cp1;cp2;... (variable refs) or numeric rows
-    if re.match(r"^cp\d+", inner.replace(" ", "")):
+    if re.match(r"^cp\d+", inner.replace(" ", ""), re.IGNORECASE):
         # Variable refs: cp1;cp2;cp3;...
-        refs = re.split(r"\s*;\s*", inner)
-        rows = []
-        for ref in refs:
-            ref = ref.strip()
-            if ref not in cp_vars:
-                raise ValueError(f"Unknown variable in cp assignment: {ref}")
-            rows.append(cp_vars[ref])
+        rows = _parse_matlab_matrix_from_refs(inner, cp_vars, error_on_missing=True)
         cp = np.vstack(rows)
     else:
         # Literal matrix: "a b c d e f ; g h i j k l ; ..."
@@ -91,16 +119,7 @@ def _parse_optional_matrix(
     cols_per_row: int,
 ) -> np.ndarray | None:
     """Parse optional MATLAB matrix: var_prefix1 = [ ... ]; ... assign_name = [ var_prefix1; ... ];"""
-    var_re = re.compile(
-        rf"{re.escape(var_prefix)}(\d+)\s*=\s*\[\s*([^]]+)\]\s*;",
-        re.IGNORECASE,
-    )
-    vars_dict: dict[str, np.ndarray] = {}
-    for m in var_re.finditer(content):
-        name = var_prefix + m.group(1)
-        vec = _parse_matlab_vector(m.group(2))
-        if vec.size == cols_per_row:
-            vars_dict[name] = vec
+    vars_dict = _collect_numbered_vars(content, var_prefix, cols_per_row)
 
     assign_re = re.compile(
         rf"{re.escape(assign_name)}\s*=\s*\[\s*([^]]+)\]\s*;",
@@ -109,14 +128,11 @@ def _parse_optional_matrix(
     m = assign_re.search(content)
     if not m or not vars_dict:
         return None
-    inner = m.group(1).strip()
-    refs = re.split(r"\s*;\s*", inner)
-    rows = []
-    for ref in refs:
-        ref = ref.strip()
-        if ref not in vars_dict:
-            return None
-        rows.append(vars_dict[ref])
+
+    rows = _parse_matlab_matrix_from_refs(m.group(1).strip(), vars_dict)
+    if not rows:
+        return None
+
     return np.vstack(rows)
 
 
@@ -127,16 +143,7 @@ def _parse_optional_matrix_or_single(
     cols_per_row: int,
 ) -> np.ndarray | None:
     """Parse optional matrix: assign_name = [ a; b; ... ] or assign_name = var_prefix1 (single)."""
-    var_re = re.compile(
-        rf"{re.escape(var_prefix)}(\d+)\s*=\s*\[\s*([^]]+)\]\s*;",
-        re.IGNORECASE,
-    )
-    vars_dict: dict[str, np.ndarray] = {}
-    for m in var_re.finditer(content):
-        name = var_prefix + m.group(1)
-        vec = _parse_matlab_vector(m.group(2))
-        if vec.size == cols_per_row:
-            vars_dict[name] = vec
+    vars_dict = _collect_numbered_vars(content, var_prefix, cols_per_row)
     # Single: cpln = cpln1 (only if we have vars)
     if vars_dict:
         m_single = re.search(
