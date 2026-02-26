@@ -244,11 +244,13 @@ namespace KstAnalysisWizard
             }
             catch (Exception ex)
             {
-                bool logged = Logger.LogError(ex);
-                _lblStatus.Text = "An unexpected error occurred. Details were written to the log file:\r\n" + Logger.LogPath;
-                if (!logged)
+                if (Logger.LogError(ex))
                 {
-                    _lblStatus.Text += "\r\n(Note: Failed to write to log file)";
+                    _lblStatus.Text = "An unexpected error occurred. Details were written to the log file:\r\n" + Logger.LogPath;
+                }
+                else
+                {
+                    _lblStatus.Text = "An unexpected error occurred.";
                 }
             }
         }

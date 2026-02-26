@@ -17,6 +17,9 @@ namespace KstAnalysisWizard
                     Directory.CreateDirectory(dir);
                 }
 
+                string message = string.Format("[{0}] Exception:{1}{1}{2}{1}{1}",
+                    DateTime.Now,
+                    Environment.NewLine,
                 string message = string.Format("[{0}] Exception:{1}{2}{2}{3}{2}",
                     DateTime.Now,
                     Environment.NewLine,
