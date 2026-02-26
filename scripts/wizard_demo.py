@@ -86,7 +86,7 @@ def main():
         abs_path = os.path.abspath(input_path).replace("\\", "/").replace("'", "''")
         matlab_call = f"run_wizard_analysis('{abs_path}')"
         def inner_done(success, message):
-             on_done_callback(success, message, None)
+            on_done_callback(success, message, None)
         run_matlab_headless(matlab_call, MATLAB_TOOL_DIR, inner_done)
 
     analysis_tab = AnalysisPanel(
