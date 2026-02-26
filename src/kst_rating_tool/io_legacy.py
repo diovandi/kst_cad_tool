@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -24,7 +23,6 @@ def _collect_numbered_vars(
     """Find all occurrences of prefixN = [ ... ]; and return them as a dict."""
     pattern = re.compile(
         rf"{re.escape(prefix)}(\d+)\s*=\s*\[\s*([^]]+)\]\s*;",
-        re.IGNORECASE,
     )
     vars_dict: dict[str, np.ndarray] = {}
     for m in pattern.finditer(content):
@@ -93,6 +91,8 @@ def _parse_cp_only_m_file(text: str) -> np.ndarray:
     if re.match(r"^cp\d+", inner.replace(" ", ""), re.IGNORECASE):
         # Variable refs: cp1;cp2;cp3;...
         rows = _parse_matlab_matrix_from_refs(inner, cp_vars, error_on_missing=True)
+        if not rows:
+            raise ValueError("cp matrix has no valid variable references")
         cp = np.vstack(rows)
     else:
         # Literal matrix: "a b c d e f ; g h i j k l ; ..."
