@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from multiprocessing import Pool
-from typing import List, Tuple
+from typing import Dict, List, Set, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -172,6 +172,7 @@ def analyze_constraints(
         for lst in chunk_results:
             all_results.extend(lst)
         all_results.sort(key=lambda x: x[0])
+        mot_seen = set()
         for combo_i, mot_arr, R_two_rows in all_results:
             key = mot_arr.tobytes()
             if key in mot_seen:
@@ -186,6 +187,7 @@ def analyze_constraints(
             Rcpln_pos_rows.append(R_two_rows[0, no_cp + no_cpin + no_clin : total_cp])
             Rcpln_neg_rows.append(R_two_rows[1, no_cp + no_cpin + no_clin : total_cp])
     else:
+        mot_seen = set()
         for combo_row in combo:
             W = form_combo_wrench(wr_all, combo_row)
             if W.size == 0:
@@ -276,7 +278,8 @@ def analyze_constraints_detailed(
     Rclin_neg_rows: List[NDArray[np.float64]] = []
     Rcpln_pos_rows: List[NDArray[np.float64]] = []
     Rcpln_neg_rows: List[NDArray[np.float64]] = []
-    combo_proc_rows: List[NDArray[np.int_]] = []
+    combo_proc_indices: List[int] = []
+    combo_proc_rows_list: List[NDArray[np.int_]] = []
     combo_dup_idx = np.zeros(combo.shape[0], dtype=np.int_)
 
     if n_workers is not None and n_workers > 1:
@@ -296,6 +299,7 @@ def analyze_constraints_detailed(
         for lst in chunk_results_d:
             all_results_d.extend(lst)
         all_results_d.sort(key=lambda x: x[0])
+        mot_map = {}
         for combo_i, mot_arr, R_two_rows in all_results_d:
             key = mot_arr.tobytes()
             if key in mot_seen:
@@ -313,6 +317,7 @@ def analyze_constraints_detailed(
             Rcpln_pos_rows.append(R_two_rows[0, no_cp + no_cpin + no_clin : total_cp])
             Rcpln_neg_rows.append(R_two_rows[1, no_cp + no_cpin + no_clin : total_cp])
     else:
+        mot_map = {}
         for combo_i, combo_row in enumerate(combo):
             W = form_combo_wrench(wr_all_list, combo_row)
             if W.size == 0:
@@ -328,6 +333,7 @@ def analyze_constraints_detailed(
                 combo_dup_idx[combo_i] = mot_seen[key] + 1
                 continue
             combo_dup_idx[combo_i] = 0
+            mot_map[mot_tuple] = len(mot_hold)
 
             input_wr, _ = input_wr_compose(mot, pts, max_d)
             react_wr_5 = react_wr_5_compose(constraints, combo_row, mot.rho)
@@ -383,7 +389,12 @@ def analyze_constraints_detailed(
     mot_half_rev = np.hstack([-mot_half[:, :6], mot_half[:, 6:]])
     mot_all = np.vstack([mot_half, mot_half_rev])
     mot_all = np.round(mot_all * 1e4) / 1e4
-    combo_proc = np.vstack(combo_proc_rows)
+    if not combo_proc_indices:
+        combo_proc = np.empty((0, combo.shape[1] + 1), dtype=np.int_)
+    else:
+        indices_arr = np.array(combo_proc_indices, dtype=np.int_).reshape(-1, 1)
+        combos_arr = np.vstack(combo_proc_rows_list)
+        combo_proc = np.hstack([indices_arr, combos_arr])
 
     # Match MATLAB unique(mot_all_org, 'rows'): first occurrence per unique motion
     _, uniq_idx = np.unique(mot_all, axis=0, return_index=True)
