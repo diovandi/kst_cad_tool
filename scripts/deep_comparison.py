@@ -8,7 +8,7 @@ Classifies deviations: exact, within tolerance (atol=1e-3, rtol=5%),
 significant (>5%), major (>20%). Writes docs/DEEP_COMPARISON.md.
 
 Usage:
-  python scripts/deep_comparison.py [--matlab] [--out docs/DEEP_COMPARISON.md]
+  python scripts/deep_comparison.py [case_name_or_number]... [--matlab] [--out docs/DEEP_COMPARISON.md]
 
 To include MATLAB in the report, generate MATLAB result files first. From the
 repository root you can run: python scripts/compare_octave_python.py <case> --full --matlab
@@ -28,9 +28,11 @@ if __name__ == "__main__":
     repo_root = Path(__file__).resolve().parent.parent
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
+    if str(repo_root / "src") not in sys.path:
+        sys.path.insert(0, str(repo_root / "src"))
 
 from scripts.compare_octave_python import parse_full_result_file
-from scripts.compare_to_thesis import CASE_NUM_TO_NAME, THESIS_REF
+from kst_rating_tool.reference_data import CASE_NUM_TO_NAME, THESIS_REF
 
 ATOL = 1e-3
 RTOL = 0.05
@@ -281,8 +283,8 @@ def build_summary_table(data_by_case: dict[str, dict[str, dict[str, Any] | None]
     if not use_matlab:
         sep = "|------|------------|--------|--------|-------|"
     lines.append(sep)
-    for case_name in THESIS_CASES:
-        case_num = next((n for n, name in CASE_NUM_TO_NAME.items() if name == case_name), 0)
+    cases_in_report = [c for c in THESIS_CASES if c in data_by_case]
+    for case_name in cases_in_report:
         data = data_by_case.get(case_name) or {}
         th = data.get("thesis")
         mat = data.get("matlab")
@@ -322,7 +324,8 @@ def build_executive_summary(data_by_case: dict[str, dict[str, dict[str, Any] | N
     lines.append("")
     match_thesis: list[str] = []
     python_divergence: list[str] = []
-    for case_name in THESIS_CASES:
+    cases_in_report = [c for c in THESIS_CASES if c in data_by_case]
+    for case_name in cases_in_report:
         data = data_by_case.get(case_name) or {}
         th = data.get("thesis")
         oct = data.get("octave")
@@ -340,7 +343,9 @@ def build_executive_summary(data_by_case: dict[str, dict[str, dict[str, Any] | N
             rel = abs(py_wtr - th_wtr) / abs(th_wtr)
             if rel > RTOL:
                 python_divergence.append(f"{case_name} (WTR {py_wtr:.4g} vs thesis {th_wtr:.4g})")
-    lines.append("- **MATLAB/Octave vs thesis:** " + (f"{len(match_thesis)}/{len(THESIS_CASES)} cases match (WTR within 5%): " + ", ".join(match_thesis) if match_thesis else "No result files."))
+
+    total_cases = len(cases_in_report)
+    lines.append("- **MATLAB/Octave vs thesis:** " + (f"{len(match_thesis)}/{total_cases} cases match (WTR within 5%): " + ", ".join(match_thesis) if match_thesis else "No result files."))
     lines.append("- **Python vs thesis:** " + (f"Divergence (WTR >5%) in: " + "; ".join(python_divergence) if python_divergence else "All cases within tolerance."))
     lines.append("")
     return lines
@@ -360,17 +365,70 @@ def build_root_cause_section() -> list[str]:
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent
+
+    # Argument parsing
     use_matlab = "--matlab" in sys.argv
-    argv = [a for a in sys.argv[1:] if a not in ("--matlab", "--out")]
-    out_path = repo_root / "docs" / "DEEP_COMPARISON.md"
-    for i, a in enumerate(sys.argv[1:], 1):
-        if a == "--out" and i < len(sys.argv):
-            out_path = Path(sys.argv[i + 1]).resolve()
-            break
+    out_path_arg = None
+    case_args = []
+
+    i = 1
+    while i < len(sys.argv):
+        arg = sys.argv[i]
+        if arg == "--matlab":
+            pass
+        elif arg == "--out":
+            i += 1
+            if i < len(sys.argv):
+                out_path_arg = Path(sys.argv[i]).resolve()
+        elif arg.lower() == "all":
+            pass
+        else:
+            case_args.append(arg)
+        i += 1
+
+    if out_path_arg:
+        out_path = out_path_arg
+    else:
+        out_path = repo_root / "docs" / "DEEP_COMPARISON.md"
+
+    # Determine which cases to run
+    cases_to_run = []
+    if not case_args:
+        cases_to_run = THESIS_CASES
+    else:
+        for arg in case_args:
+            name = None
+            if arg.isdigit():
+                n = int(arg)
+                if 1 <= n <= 21:
+                    name = CASE_NUM_TO_NAME.get(n)
+            else:
+                arg_clean = arg.replace(".m", "").strip()
+                # Find matching name
+                if arg_clean in THESIS_REF:
+                    name = arg_clean
+                else:
+                    # try by value in CASE_NUM_TO_NAME
+                    for k, v in CASE_NUM_TO_NAME.items():
+                        if v == arg_clean:
+                            name = v
+                            break
+
+            if name and name in THESIS_REF:
+                if name not in cases_to_run:
+                    cases_to_run.append(name)
+            else:
+                print(f"Warning: Unknown or non-thesis case argument '{arg}', skipping.", file=sys.stderr)
+
+    if not cases_to_run:
+        print("No valid cases selected to run.", file=sys.stderr)
+        return 1
+
+    print(f"Running comparison for {len(cases_to_run)} cases...", file=sys.stderr)
 
     data_by_case: dict[str, dict[str, dict[str, Any] | None]] = {}
     case_reports: list[str] = []
-    for case_name in THESIS_CASES:
+    for case_name in cases_to_run:
         case_num = next((n for n, name in CASE_NUM_TO_NAME.items() if name == case_name), 0)
         data = load_result_files(repo_root, case_name, use_matlab)
         data_by_case[case_name] = data
