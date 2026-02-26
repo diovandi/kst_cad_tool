@@ -278,7 +278,7 @@ def analyze_constraints_detailed(
     Rclin_neg_rows: List[NDArray[np.float64]] = []
     Rcpln_pos_rows: List[NDArray[np.float64]] = []
     Rcpln_neg_rows: List[NDArray[np.float64]] = []
-    combo_proc_rows: List[List[int]] = []
+    combo_proc_rows: List[NDArray[np.int_]] = []
     combo_dup_idx = np.zeros(combo.shape[0], dtype=np.int_)
 
     if n_workers is not None and n_workers > 1:
@@ -308,7 +308,7 @@ def analyze_constraints_detailed(
             combo_dup_idx[combo_i] = 0
             mot_seen_dict[mot_tuple] = len(mot_hold)
             mot_hold.append(mot_flat.copy())
-            combo_proc_rows.append([combo_i + 1, *combo[combo_i]])
+            combo_proc_rows.append(np.array([combo_i + 1, *combo[combo_i]], dtype=np.int_))
             Rcp_pos_rows.append(R_two_rows[0, :no_cp])
             Rcp_neg_rows.append(R_two_rows[1, :no_cp])
             Rcpin_rows.append(R_two_rows[0, no_cp : no_cp + no_cpin])
@@ -350,7 +350,7 @@ def analyze_constraints_detailed(
             Rcpln_neg_rows.append(rcpln_neg)
             mot_seen_dict[mot_tuple] = len(mot_hold)
             mot_hold.append(mot_flat.copy())
-            combo_proc_rows.append([combo_i + 1, *combo_row])
+            combo_proc_rows.append(np.array([combo_i + 1, *combo_row], dtype=np.int_))
 
     if not mot_hold:
         R = np.full((1, max(1, total_cp)), np.inf, dtype=float)
