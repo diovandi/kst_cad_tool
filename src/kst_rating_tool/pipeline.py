@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from multiprocessing import Pool
-from typing import List, Tuple
+from typing import Dict, List, Set, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -146,7 +146,7 @@ def analyze_constraints(
     total_cp = no_cp + no_cpin + no_clin + no_cpln
 
     mot_hold: List[NDArray[np.float64]] = []
-    mot_seen = set()
+    mot_set: Set[Tuple[float, ...]] = set()
     Rcp_pos_rows: List[NDArray[np.float64]] = []
     Rcp_neg_rows: List[NDArray[np.float64]] = []
     Rcpin_rows: List[NDArray[np.float64]] = []
@@ -173,12 +173,14 @@ def analyze_constraints(
             all_results.extend(lst)
         all_results.sort(key=lambda x: x[0])
         for combo_i, mot_arr, R_two_rows in all_results:
-            mot_flat = mot_arr.ravel()
-            mot_tuple = tuple(mot_flat)
-            if mot_tuple in mot_seen:
+            mot_row = mot_arr.reshape(1, -1)
+            mot_tuple = tuple(mot_row.ravel())
+
+            if mot_tuple in mot_set:
                 continue
-            mot_seen.add(mot_tuple)
-            mot_hold.append(mot_flat.copy())
+
+            mot_set.add(mot_tuple)
+            mot_hold.append(mot_row.ravel().copy())
             Rcp_pos_rows.append(R_two_rows[0, :no_cp])
             Rcp_neg_rows.append(R_two_rows[1, :no_cp])
             Rcpin_rows.append(R_two_rows[0, no_cp : no_cp + no_cpin])
@@ -197,12 +199,14 @@ def analyze_constraints(
             mot = rec_mot(W)
             mot_arr = mot.as_array().ravel()
             mot_arr = np.round(mot_arr * 1e4) / 1e4
-            mot_flat = mot_arr.ravel()
-            mot_tuple = tuple(mot_flat)
-            if mot_tuple in mot_seen:
+            mot_row = mot_arr.reshape(1, -1)
+            mot_tuple = tuple(mot_row.ravel())
+
+            if mot_tuple in mot_set:
                 continue
-            mot_seen.add(mot_tuple)
-            mot_hold.append(mot_flat.copy())
+
+            mot_set.add(mot_tuple)
+            mot_hold.append(mot_row.ravel().copy())
 
             input_wr, _ = input_wr_compose(mot, pts, max_d)
             react_wr_5 = react_wr_5_compose(constraints, combo_row, mot.rho)
@@ -270,7 +274,7 @@ def analyze_constraints_detailed(
     total_cp = no_cp + no_cpin + no_clin + no_cpln
 
     mot_hold: List[NDArray[np.float64]] = []
-    mot_seen_dict = {}
+    mot_map: Dict[Tuple[float, ...], int] = {}
     Rcp_pos_rows: List[NDArray[np.float64]] = []
     Rcp_neg_rows: List[NDArray[np.float64]] = []
     Rcpin_rows: List[NDArray[np.float64]] = []
@@ -301,12 +305,15 @@ def analyze_constraints_detailed(
         all_results_d.sort(key=lambda x: x[0])
         mot_to_idx = {}
         for combo_i, mot_arr, R_two_rows in all_results_d:
-            mot_flat = mot_arr.ravel()
-            mot_tuple = tuple(mot_flat)
-            if mot_tuple in mot_seen_dict:
-                idx_existing = mot_seen_dict[mot_tuple]
+            mot_row = mot_arr.reshape(1, -1)
+            mot_tuple = tuple(mot_row.ravel())
+
+            if mot_tuple in mot_map:
+                idx_existing = mot_map[mot_tuple]
                 combo_dup_idx[combo_i] = idx_existing + 1
                 continue
+
+            mot_map[mot_tuple] = len(mot_hold)
             combo_dup_idx[combo_i] = 0
             mot_hold.append(mot_row.ravel().copy())
             combo_proc_indices.append(combo_i + 1)
@@ -332,13 +339,15 @@ def analyze_constraints_detailed(
             mot = rec_mot(W)
             mot_arr = mot.as_array().ravel()
             mot_arr = np.round(mot_arr * 1e4) / 1e4
-            mot_flat = mot_arr.ravel()
-            mot_tuple = tuple(mot_flat)
+            mot_row = mot_arr.reshape(1, -1)
+            mot_tuple = tuple(mot_row.ravel())
 
-            if mot_tuple in mot_seen_dict:
-                idx_existing = mot_seen_dict[mot_tuple]
+            if mot_tuple in mot_map:
+                idx_existing = mot_map[mot_tuple]
                 combo_dup_idx[combo_i] = idx_existing + 1
                 continue
+
+            mot_map[mot_tuple] = len(mot_hold)
             combo_dup_idx[combo_i] = 0
 
             input_wr, _ = input_wr_compose(mot, pts, max_d)
