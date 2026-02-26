@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-using System.Text;
 using System.Web.Script.Serialization;
 
 namespace KstAnalysisWizard
@@ -148,13 +147,14 @@ namespace KstAnalysisWizard
 
                 if (File.Exists(analysisPath))
                 {
+                    var fileContent = File.ReadAllText(analysisPath);
                     try
                     {
-                        optimFile.analysis_input = serializer.Deserialize<KstInputFile>(File.ReadAllText(analysisPath));
+                        optimFile.analysis_input = serializer.Deserialize<KstInputFile>(fileContent);
                     }
-                    catch
+                    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
                     {
-                        // Fallback if file is invalid
+                        // Fallback if file format or deserialization fails
                         optimFile.analysis_input = GetDefaultAnalysisInput();
                     }
                 }
