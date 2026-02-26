@@ -298,17 +298,17 @@ def analyze_constraints_detailed(
         for lst in chunk_results_d:
             all_results_d.extend(lst)
         all_results_d.sort(key=lambda x: x[0])
+        mot_to_idx = {}
         for combo_i, mot_arr, R_two_rows in all_results_d:
-            mot_row = mot_arr.reshape(1, -1)
-            if mot_hold:
-                already_arr = np.all(np.vstack(mot_hold) == mot_row, axis=1)
-                already = np.any(already_arr)
-                if already:
-                    idx_existing = int(np.argmax(already_arr))
-                    combo_dup_idx[combo_i] = idx_existing + 1
-                    continue
+            mot_tuple = tuple(mot_arr)
+            if mot_tuple in mot_to_idx:
+                idx_existing = mot_to_idx[mot_tuple]
+                combo_dup_idx[combo_i] = idx_existing + 1
+                continue
+
             combo_dup_idx[combo_i] = 0
-            mot_hold.append(mot_row.ravel().copy())
+            mot_to_idx[mot_tuple] = len(mot_hold)
+            mot_hold.append(mot_arr.ravel().copy())
             combo_proc_rows.append(np.concatenate([[combo_i + 1], combo[combo_i]]).astype(np.int_))
             Rcp_pos_rows.append(R_two_rows[0, :no_cp])
             Rcp_neg_rows.append(R_two_rows[1, :no_cp])
