@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from multiprocessing import Pool
-from typing import List, Tuple
+from typing import Dict, List, Set, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -146,6 +146,7 @@ def analyze_constraints(
     total_cp = no_cp + no_cpin + no_clin + no_cpln
 
     mot_hold: List[NDArray[np.float64]] = []
+    mot_set: Set[Tuple[float, ...]] = set()
     Rcp_pos_rows: List[NDArray[np.float64]] = []
     Rcp_neg_rows: List[NDArray[np.float64]] = []
     Rcpin_rows: List[NDArray[np.float64]] = []
@@ -271,6 +272,7 @@ def analyze_constraints_detailed(
     total_cp = no_cp + no_cpin + no_clin + no_cpln
 
     mot_hold: List[NDArray[np.float64]] = []
+    mot_map: Dict[Tuple[float, ...], int] = {}
     Rcp_pos_rows: List[NDArray[np.float64]] = []
     Rcp_neg_rows: List[NDArray[np.float64]] = []
     Rcpin_rows: List[NDArray[np.float64]] = []
@@ -278,7 +280,8 @@ def analyze_constraints_detailed(
     Rclin_neg_rows: List[NDArray[np.float64]] = []
     Rcpln_pos_rows: List[NDArray[np.float64]] = []
     Rcpln_neg_rows: List[NDArray[np.float64]] = []
-    combo_proc_rows: List[NDArray[np.int_]] = []
+    combo_proc_indices: List[int] = []
+    combo_proc_rows_list: List[NDArray[np.int_]] = []
     combo_dup_idx = np.zeros(combo.shape[0], dtype=np.int_)
 
     if n_workers is not None and n_workers > 1:
@@ -309,7 +312,11 @@ def analyze_constraints_detailed(
             combo_dup_idx[combo_i] = 0
             mot_map[mot_tuple] = len(mot_hold)
             mot_hold.append(mot_row.ravel().copy())
-            combo_proc_rows.append(np.concatenate([[combo_i + 1], combo[combo_i]]).astype(np.int_))
+            combo_proc_indices.append(combo_i + 1)
+            combo_proc_rows_list.append(combo[combo_i])
+            mot_seen_dict[mot_tuple] = len(mot_hold)
+            mot_hold.append(mot_flat.copy())
+            combo_proc_rows.append(np.array([combo_i + 1, *combo[combo_i]], dtype=np.int_))
             Rcp_pos_rows.append(R_two_rows[0, :no_cp])
             Rcp_neg_rows.append(R_two_rows[1, :no_cp])
             Rcpin_rows.append(R_two_rows[0, no_cp : no_cp + no_cpin])
@@ -352,7 +359,11 @@ def analyze_constraints_detailed(
             Rcpln_neg_rows.append(rcpln_neg)
             mot_map[mot_tuple] = len(mot_hold)
             mot_hold.append(mot_row.ravel().copy())
-            combo_proc_rows.append(np.concatenate([[combo_i + 1], combo_row]).astype(np.int_))
+            combo_proc_indices.append(combo_i + 1)
+            combo_proc_rows_list.append(combo_row)
+            mot_seen_dict[mot_tuple] = len(mot_hold)
+            mot_hold.append(mot_flat.copy())
+            combo_proc_rows.append(np.array([combo_i + 1, *combo_row], dtype=np.int_))
 
     if not mot_hold:
         R = np.full((1, max(1, total_cp)), np.inf, dtype=float)
@@ -392,7 +403,12 @@ def analyze_constraints_detailed(
     mot_half_rev = np.hstack([-mot_half[:, :6], mot_half[:, 6:]])
     mot_all = np.vstack([mot_half, mot_half_rev])
     mot_all = np.round(mot_all * 1e4) / 1e4
-    combo_proc = np.vstack(combo_proc_rows)
+    if not combo_proc_indices:
+        combo_proc = np.empty((0, combo.shape[1] + 1), dtype=np.int_)
+    else:
+        indices_arr = np.array(combo_proc_indices, dtype=np.int_).reshape(-1, 1)
+        combos_arr = np.vstack(combo_proc_rows_list)
+        combo_proc = np.hstack([indices_arr, combos_arr])
 
     # Match MATLAB unique(mot_all_org, 'rows'): first occurrence per unique motion
     _, uniq_idx = np.unique(mot_all, axis=0, return_index=True)
