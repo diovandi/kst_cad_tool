@@ -299,6 +299,7 @@ def analyze_constraints_detailed(
         for lst in chunk_results_d:
             all_results_d.extend(lst)
         all_results_d.sort(key=lambda x: x[0])
+        mot_to_idx = {}
         for combo_i, mot_arr, R_two_rows in all_results_d:
             mot_flat = mot_arr.ravel()
             mot_tuple = tuple(mot_flat)
