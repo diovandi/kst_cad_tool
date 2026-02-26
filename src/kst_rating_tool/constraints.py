@@ -118,7 +118,20 @@ class ConstraintSet:
                 ],
                 dtype=float,
             )
-            cpln_prop = np.vstack([pl.prop for pl in self.planes]).astype(float)
+
+            # Pad properties to match maximum length
+            max_len = max((pl.prop.size for pl in self.planes), default=0)
+            props = []
+            for pl in self.planes:
+                if pl.prop.size < max_len:
+                    padded = np.zeros(max_len, dtype=float)
+                    if pl.prop.size > 0:
+                        padded[: pl.prop.size] = pl.prop
+                    props.append(padded)
+                else:
+                    props.append(pl.prop)
+
+            cpln_prop = np.vstack(props).astype(float)
         else:
             cpln = np.empty((0, 7), dtype=float)
             cpln_prop = np.empty((0, 0), dtype=float)

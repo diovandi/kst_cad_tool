@@ -14,9 +14,19 @@ dist/
 .idea/
 .vscode/
 
+# .NET build artifacts
+[Oo]bj/
+[Bb]in/
+*.user
+
 # Debug / generated data
 *.npz
 debug_*.npz
+
+# .NET build artifacts
+*/obj/
+*/bin/
+*.user
 
 # OS files
 .DS_Store
