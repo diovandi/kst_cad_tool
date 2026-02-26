@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-using System.Text;
 using System.Web.Script.Serialization;
 
 namespace KstAnalysisWizard
