@@ -54,9 +54,9 @@ def test_matlab_rank_small_singular_values():
     """Test matrices with small singular values relative to tolerance."""
     # Tolerance is max(size(A)) * eps(max(svd(A)))
 
-    # Case 1: All values are very small but distinct
-    # max_sv ~ 1e-15. tol ~ 2 * eps(1e-15) ~ 2 * 2e-31 = 4e-31.
-    # 2nd sv ~ 1e-15. > tol. Rank 2.
+    # Case 1: All values are very small and identical
+    # max_sv = eps ≈ 2.22e-16. tol = 2 * eps(eps), on the order of 1e-31.
+    # Both singular values are eps ≈ 2.22e-16, which are >> tol. Rank 2.
     eps = np.spacing(1.0)
     A = np.diag([eps, eps])
     assert matlab_rank(A) == 2
@@ -87,20 +87,24 @@ def test_matlab_rank_ill_conditioned():
     H = hilbert(10)
     # The condition number of H(10) is ~1e13.
     # max sv ~ 1.5. min sv ~ 1e-13.
-    # tol ~ 10 * eps(1.5) ~ 10 * 2.22e-16 ~ 2.22e-15.
-    # min sv > tol (1e-13 > 2e-15).
+    # tol ~ 10 * eps(1.5) ~ 10 * 3.33e-16 ~ 3.33e-15.
+    # min sv > tol (1e-13 > 3e-15).
     # So it should be full rank (10).
     assert matlab_rank(H) == 10
 
     # H(15) condition number ~ 1e17.
-    # max sv ~ 1.5. tol ~ 15 * eps(1.5) ~ 3e-15.
+    # max sv ~ 1.5. tol ~ 15 * eps(1.5) ~ 5e-15.
     # min sv might be smaller than tol.
     # Let's verify behavior.
     H15 = hilbert(15)
-    # Depending on float precision, this might drop rank.
-    # Just ensure it runs and returns a reasonable number <= 15.
+    # In double precision, MATLAB's `rank(hilb(15))` returns 13 due to the
+    # default tolerance max(m, n) * eps(max(singular_value)).
+    # However, depending on the exact numpy/scipy build (OpenBLAS vs MKL etc),
+    # and the version, the singular values might differ slightly.
+    # We verified in this environment rank is 12.
+    # We assert it is close to 12 or 13.
     r = matlab_rank(H15)
-    assert 10 <= r <= 15
+    assert r in (12, 13)
 
 
 def test_matlab_rank_tall_wide():
