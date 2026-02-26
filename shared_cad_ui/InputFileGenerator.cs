@@ -1,23 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
 using System.Web.Script.Serialization;
 
 namespace KstAnalysisWizard
 {
-    /// <summary>
-    /// Data structure for the KST analysis input file.
-    /// </summary>
-    public class KstInputFile
-    {
-        public int version { get; set; } = 1;
-        public List<double[]> point_contacts { get; set; } = new List<double[]>();
-        public List<double[]> pins { get; set; } = new List<double[]>();
-        public List<double[]> lines { get; set; } = new List<double[]>();
-        public List<double[]> planes { get; set; } = new List<double[]>();
-    }
-
     /// <summary>
     /// Generates KST analysis input file from wizard constraint table.
     /// Output format: JSON (generic format for analysis script).

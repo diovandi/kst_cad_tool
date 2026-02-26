@@ -7,6 +7,40 @@ using System.Web.Script.Serialization;
 
 namespace KstAnalysisWizard
 {
+    internal class KstOptimizationFile
+    {
+        public int version { get; set; } = 1;
+        public KstInputFile analysis_input { get; set; }
+        public OptimizationData optimization { get; set; }
+    }
+
+    internal class OptimizationData
+    {
+        public List<ModifiedConstraint> modified_constraints { get; set; } = new List<ModifiedConstraint>();
+        public List<CandidateMatrixItem> candidate_matrix { get; set; } = new List<CandidateMatrixItem>();
+    }
+
+    internal class ModifiedConstraint
+    {
+        public string type { get; set; }
+        public int index { get; set; }
+        public SearchSpace search_space { get; set; }
+    }
+
+    internal class SearchSpace
+    {
+        public string type { get; set; }
+        public double[] origin { get; set; }
+        public double[] direction { get; set; }
+        public int num_steps { get; set; }
+    }
+
+    internal class CandidateMatrixItem
+    {
+        public int constraint_index { get; set; }
+        public List<double[]> candidates { get; set; } = new List<double[]>();
+    }
+
     /// <summary>
     /// Optimization Wizard: select constraint to optimize, search space type (discrete/line/plane/orient),
     /// generate candidate matrix and optimization plan JSON; run optimization and show results.
