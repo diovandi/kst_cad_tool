@@ -20,30 +20,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Case number (1-21) to case file name (no .m)
-CASE_NUM_TO_NAME = {
-    1: "case1a_chair_height",
-    2: "case1b_chair_height_angle",
-    3: "case2a_cube_scalability",
-    4: "case2b_cube_tradeoff",
-    5: "case3a_cover_leverage",
-    6: "case3b_cover_symmetry",
-    7: "case3c_cover_orient",
-    8: "case4a_endcap_tradeoff",
-    9: "case4b_endcap_circlinsrch",
-    10: "case5a_printer_4screws_orient",
-    11: "case5b_printer_4screws_line",
-    12: "case5c_printer_snap_orient",
-    13: "case5d_printer_snap_line",
-    14: "case5e_printer_partingline",
-    15: "case5f1_printer_line_size",
-    16: "case5f2_printer_sideline_size",
-    17: "case5g_printer_5d",
-    18: "case5rev_a_printer_2screws",
-    19: "case5_printer_allscrews",
-    20: "case5rev_d_printer_remove2_bot_screw",
-    21: "case5rev_b_printer_flat_partingline",
-}
+# Ensure src is on path for imports
+if __name__ == "__main__":
+    repo_root = Path(__file__).resolve().parent.parent
+    if str(repo_root / "src") not in sys.path:
+        sys.path.insert(0, str(repo_root / "src"))
+
+from kst_rating_tool.reference_data import CASE_NUM_TO_NAME
 
 
 def mot_row_to_specmot_row(mot_row: "np.ndarray") -> "np.ndarray":
@@ -75,9 +58,6 @@ def main() -> int:
     if not case_path.is_file():
         print(f"Case file not found: {case_path}", file=sys.stderr)
         return 1
-
-    if str(repo_root / "src") not in sys.path:
-        sys.path.insert(0, str(repo_root / "src"))
 
     import numpy as np
     from kst_rating_tool import analyze_constraints_detailed, analyze_specified_motions
