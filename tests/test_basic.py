@@ -131,3 +131,39 @@ def test_load_case_m_file_if_exists():
     assert cs.total_cp >= 1
     results = analyze_constraints(cs)
     assert np.isfinite(results.WTR) or np.isinf(results.WTR)
+
+
+def test_duplicate_logic():
+    # 5 random points
+    np.random.seed(42)
+    p = []
+    for _ in range(5):
+        pos = np.random.rand(3)
+        normal = np.random.rand(3)
+        normal /= np.linalg.norm(normal)
+        p.append(PointConstraint(position=pos, normal=normal))
+
+    # 10 points (duplicates) to force duplicate motions
+    # Create distinct objects
+    p_duplicated = [PointConstraint(position=pt.position.copy(), normal=pt.normal.copy()) for pt in p + p]
+
+    cs = ConstraintSet(points=p_duplicated)
+
+    # Run analysis (sequential to test non-parallel path)
+    result = analyze_constraints_detailed(cs, n_workers=1)
+
+    # Verify duplicates are found
+    dup_indices = np.where(result.combo_dup_idx > 0)[0]
+    assert len(dup_indices) > 0, "No duplicates found when using repeated constraints"
+
+    max_dup_idx = np.max(result.combo_dup_idx)
+
+    # max_dup_idx corresponds to an index in mot_hold (1-based).
+    # It must be <= no_mot_half (total unique motions).
+    assert max_dup_idx <= result.no_mot_half, f"Duplicate index {max_dup_idx} exceeds unique count {result.no_mot_half}"
+
+    # Specifically for this case where all valid motions are identical:
+    # no_mot_half should be 1.
+    # max_dup_idx should be 1.
+    assert result.no_mot_half == 1, "Expected exactly 1 unique motion"
+    assert max_dup_idx == 1, "Expected duplicate index to point to the first unique motion (index 1)"
