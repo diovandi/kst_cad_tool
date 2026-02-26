@@ -18,6 +18,11 @@ dist/
 *.npz
 debug_*.npz
 
+# .NET build artifacts
+*/obj/
+*/bin/
+*.user
+
 # OS files
 .DS_Store
 Thumbs.db
