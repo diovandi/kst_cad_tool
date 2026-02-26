@@ -7,7 +7,8 @@ from __future__ import annotations
 
 # Thesis reference values from Chapter 10 and 11 (Rusli dissertation).
 # Keys: case name (no .m). Values: dict with WTR, MRR, MTR, TOR, optional LAR_WTR, LAR_MTR,
-# optional wtr_motion (list of 11: Om_x..Pitch, TR), optional no_mot_unique, notes.
+# optional wtr_motion (list of 11: Om_x, Om_y, Om_z, Mu_x, Mu_y, Mu_z, Rho_x, Rho_y, Rho_z, Pitch, TR),
+# optional no_mot_unique, notes.
 THESIS_REF: dict[str, dict] = {
     "case1a_chair_height": {
         "source": "Ch 10 Table 10.2",
@@ -17,7 +18,8 @@ THESIS_REF: dict[str, dict] = {
         "TOR": 1.001,
         "LAR_WTR": 5.236,
         "LAR_MTR": 0.999,
-        "wtr_motion": [0.000, 0.708, 0.706, 0.000, 0.000, 0.000, 2.000, 1.724, 1.731, 0.001, 0.191],  # Om(3), Mu(3)=0, Rho(3), Pitch=h, TR (thesis table: 8 values; expanded to 11 for motion + TR)
+        "wtr_motion": [0.000, 0.708, 0.706, 0.000, 0.000, 0.000, 2.000, 1.724, 1.731, 0.001, 0.191],
+        # Om(3), Mu(3)=0, Rho(3), Pitch=h, TR (thesis table: 8 values; expanded to 11 for motion + TR)
         "no_mot_unique": 21,
         "notes": "Thompson's chair. Thesis WTR motion: omega=(0, 0.708, 0.706), rho=(2, 1.724, 1.731), h=0.001, TR=0.191. Sign of omega/rho may differ.",
     },
