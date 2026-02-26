@@ -51,19 +51,22 @@ def optim_postproc(
 
     if MRR_optim_all is not None:
         MRR_flat = MRR_optim_all.ravel()
-        MRR_max = np.nanmax(MRR_flat)
-        MRR_max_idx_flat = np.where(np.abs(MRR_flat - MRR_max) < 1e-12)[0]
-        out["MRR_max_idx"] = np.unravel_index(MRR_max_idx_flat[0], MRR_optim_all.shape)
+        if np.any(np.isfinite(MRR_flat)):
+            MRR_max = np.nanmax(MRR_flat)
+            MRR_max_idx_flat = np.where(np.abs(MRR_flat - MRR_max) < 1e-12)[0]
+            out["MRR_max_idx"] = np.unravel_index(MRR_max_idx_flat[0], MRR_optim_all.shape)
     if MTR_optim_all is not None:
         MTR_flat = MTR_optim_all.ravel()
-        MTR_max = np.nanmax(MTR_flat)
-        MTR_max_idx_flat = np.where(np.abs(MTR_flat - MTR_max) < 1e-12)[0]
-        out["MTR_max_idx"] = np.unravel_index(MTR_max_idx_flat[0], MTR_optim_all.shape)
+        if np.any(np.isfinite(MTR_flat)):
+            MTR_max = np.nanmax(MTR_flat)
+            MTR_max_idx_flat = np.where(np.abs(MTR_flat - MTR_max) < 1e-12)[0]
+            out["MTR_max_idx"] = np.unravel_index(MTR_max_idx_flat[0], MTR_optim_all.shape)
     if TOR_optim_all is not None:
         TOR_flat = TOR_optim_all.ravel()
-        TOR_max = np.nanmax(np.where(np.isfinite(TOR_flat), TOR_flat, -np.inf))
-        TOR_max_idx_flat = np.where(np.abs(TOR_flat - TOR_max) < 1e-12)[0]
-        out["TOR_max_idx"] = np.unravel_index(TOR_max_idx_flat[0], TOR_optim_all.shape)
+        if np.any(np.isfinite(TOR_flat)):
+            TOR_max = np.nanmax(np.where(np.isfinite(TOR_flat), TOR_flat, -np.inf))
+            TOR_max_idx_flat = np.where(np.abs(TOR_flat - TOR_max) < 1e-12)[0]
+            out["TOR_max_idx"] = np.unravel_index(TOR_max_idx_flat[0], TOR_optim_all.shape)
     return out
 
 
