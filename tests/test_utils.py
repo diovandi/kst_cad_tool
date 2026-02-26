@@ -87,24 +87,17 @@ def test_matlab_rank_ill_conditioned():
     H = hilbert(10)
     # The condition number of H(10) is ~1e13.
     # max sv ~ 1.5. min sv ~ 1e-13.
-    # tol ~ 10 * eps(1.5) ~ 10 * 3.33e-16 ~ 3.33e-15.
-    # min sv > tol (1e-13 > 3e-15).
+    # tol ~ 10 * eps(max_sv) ~ 10 * 2.22e-16 ~ 2.22e-15.
+    # min sv > tol (1e-13 > 2.22e-15).
     # So it should be full rank (10).
     assert matlab_rank(H) == 10
 
     # H(15) condition number ~ 1e17.
-    # max sv ~ 1.5. tol ~ 15 * eps(1.5) ~ 5e-15.
-    # min sv might be smaller than tol.
-    # Let's verify behavior.
+    # max sv ~ 1.5. tol ~ 15 * eps(max_sv) ~ 15 * 2.22e-16 ~ 3.33e-15.
+    # Some singular values fall below tol, reducing the numerical rank.
+    # In double precision, matlab_rank(hilb(15)) returns 12.
     H15 = hilbert(15)
-    # In double precision, MATLAB's `rank(hilb(15))` returns 13 due to the
-    # default tolerance max(m, n) * eps(max(singular_value)).
-    # However, depending on the exact numpy/scipy build (OpenBLAS vs MKL etc),
-    # and the version, the singular values might differ slightly.
-    # We verified in this environment rank is 12.
-    # We assert it is close to 12 or 13.
-    r = matlab_rank(H15)
-    assert r in (12, 13)
+    assert matlab_rank(H15) == 12
 
 
 def test_matlab_rank_tall_wide():
