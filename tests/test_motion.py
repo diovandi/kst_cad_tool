@@ -5,7 +5,7 @@ from kst_rating_tool.motion import calc_d
 def test_calc_d_empty_points():
     omu = np.array([1.0, 0.0, 0.0])
     rho = np.array([0.0, 0.0, 0.0])
-    pts = np.array([])
+    pts = np.empty((0, 3), dtype=float)
     max_d = 10.0
     assert calc_d(omu, rho, pts, max_d) == 0.0
 
