@@ -8,8 +8,8 @@ LAR_MTR	0.03737377755
 
 COUNTS
 total_combo	283712
-combo_proc_count	1308
-no_mot_half	1308
+combo_proc_count	1037
+no_mot_half	1037
 no_mot_unique	718
 
 WTR_MOTION
