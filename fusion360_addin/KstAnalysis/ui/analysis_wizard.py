@@ -12,13 +12,16 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-# Import shared UI components
-try:
-    from kst_rating_tool.ui import AnalysisPanel, OptimizationPanel
-except ImportError:
-    # If running from repo root without install, try adding src to path
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src")))
-    from kst_rating_tool.ui import AnalysisPanel, OptimizationPanel
+# Import shared UI components WITHOUT importing the full kst_rating_tool package
+# (Fusion's embedded Python does not have numpy, which kst_rating_tool depends on).
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_SRC_ROOT = os.path.abspath(os.path.join(_THIS_DIR, "../../../src"))
+_UI_DIR = os.path.join(_SRC_ROOT, "kst_rating_tool", "ui")
+if _UI_DIR not in sys.path:
+    sys.path.insert(0, _UI_DIR)
+
+from analysis_ui import AnalysisPanel  # type: ignore
+from optimization_ui import OptimizationPanel  # type: ignore
 
 # Output directory: same as C# add-in (Documents/KstAnalysis)
 if sys.platform == "win32":
@@ -28,7 +31,6 @@ else:
 OUTPUT_DIR = os.path.join(_DOCS, "KstAnalysis")
 
 # Best-effort guess of repo root when running from the repo checkout
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _ADDIN_DIR = os.path.dirname(_THIS_DIR)
 _REPO_ROOT_GUESS = os.path.abspath(os.path.join(_ADDIN_DIR, os.pardir, os.pardir))
 _WIZARD_SCRIPT = os.path.join(_REPO_ROOT_GUESS, "scripts", "run_wizard_analysis.py")
