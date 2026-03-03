@@ -6,7 +6,13 @@ import json
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
-from .dialogs import show_location_orientation_dialog
+
+# Support both package and standalone use (Fusion add-in loads this as a
+# top-level module, so relative imports won't work there).
+try:
+    from .dialogs import show_location_orientation_dialog  # type: ignore
+except ImportError:
+    from dialogs import show_location_orientation_dialog  # type: ignore
 
 class AnalysisPanel(ttk.Frame):
     def __init__(self, parent, output_dir,

@@ -6,7 +6,11 @@ import json
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
-from .dialogs import show_location_orientation_dialog
+
+try:
+    from .dialogs import show_location_orientation_dialog  # type: ignore
+except ImportError:
+    from dialogs import show_location_orientation_dialog  # type: ignore
 
 class OptimizationPanel(ttk.Frame):
     def __init__(self, parent, output_dir, available_constraints=None, on_run_optimization=None):
