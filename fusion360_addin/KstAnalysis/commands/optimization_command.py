@@ -31,13 +31,35 @@ class OptimizationCommand:
             "Open KST Optimization Wizard",
             ""
         )
-        cls._handlers.append(cmd_def.commandCreated.add(cls._on_command_created))
+
+        class _CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
+            def __init__(self):
+                super().__init__()
+
+            def notify(self, args):
+                cls._on_command_created(args)
+
+        created_handler = _CommandCreatedHandler()
+        cmd_def.commandCreated.add(created_handler)
+        cls._handlers.append(created_handler)
+
         if panel:
             panel.controls.addCommand(cmd_def)
 
     @classmethod
     def _on_command_created(cls, args):
-        args.command.execute.add(cls._on_execute)
+        cmd = args.command
+
+        class _ExecuteHandler(adsk.core.CommandEventHandler):
+            def __init__(self):
+                super().__init__()
+
+            def notify(self, event_args):
+                cls._on_execute(event_args)
+
+        exec_handler = _ExecuteHandler()
+        cmd.execute.add(exec_handler)
+        cls._handlers.append(exec_handler)
 
     @classmethod
     def _on_execute(cls, args):

@@ -127,7 +127,19 @@ class AnalysisCommand:
             "Open KST Constraint Analysis Wizard",
             ""
         )
-        cls._handlers.append(cmd_def.commandCreated.add(cls._on_command_created))
+
+        # Fusion API (recent versions) requires an EventHandler object, not a bare function.
+        class _CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
+            def __init__(self):
+                super().__init__()
+
+            def notify(self, args):
+                cls._on_command_created(args)
+
+        created_handler = _CommandCreatedHandler()
+        cmd_def.commandCreated.add(created_handler)
+        cls._handlers.append(created_handler)
+
         if panel:
             panel.controls.addCommand(cmd_def)
 
@@ -149,7 +161,18 @@ class AnalysisCommand:
             except Exception:
                 pass
             sel_input.setSelectionLimits(0, 0)  # 0 = unlimited
-        cls._handlers.append(cmd.execute.add(cls._on_execute))
+
+        # Attach execute handler as a proper CommandEventHandler instance.
+        class _ExecuteHandler(adsk.core.CommandEventHandler):
+            def __init__(self):
+                super().__init__()
+
+            def notify(self, event_args):
+                cls._on_execute(event_args)
+
+        exec_handler = _ExecuteHandler()
+        cmd.execute.add(exec_handler)
+        cls._handlers.append(exec_handler)
 
     @classmethod
     def _on_execute(cls, args):
