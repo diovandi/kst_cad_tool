@@ -6,6 +6,7 @@ Supports initial_constraints from Fusion selection (list of (location_str, orien
 
 import json
 import os
+import subprocess
 import sys
 import threading
 import tkinter as tk
@@ -26,8 +27,46 @@ else:
     _DOCS = os.path.expanduser("~/Documents")
 OUTPUT_DIR = os.path.join(_DOCS, "KstAnalysis")
 
+# Best-effort guess of repo root when running from the repo checkout
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_ADDIN_DIR = os.path.dirname(_THIS_DIR)
+_REPO_ROOT_GUESS = os.path.abspath(os.path.join(_ADDIN_DIR, os.pardir, os.pardir))
+_WIZARD_SCRIPT = os.path.join(_REPO_ROOT_GUESS, "scripts", "run_wizard_analysis.py")
+
 # CP names from the Analysis Tool constraint table; Optimization Tool uses this for its CP dropdown.
 _shared_constraints = []
+
+
+def _run_external_python_analysis(path, on_done, reason: str | None = None) -> None:
+    """Fallback path when Fusion's embedded Python lacks numpy.
+
+    Calls an external Python interpreter (from PATH) to run the analysis in the
+    normal project environment using scripts/run_wizard_analysis.py.
+    """
+    def run():
+        try:
+            if not os.path.isfile(_WIZARD_SCRIPT):
+                on_done(False, "External analysis script not found at {}".format(_WIZARD_SCRIPT), None)
+                return
+
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+            out_path = os.path.join(OUTPUT_DIR, "results_wizard.txt")
+
+            # Use `python` from PATH; this is where you installed project deps (numpy, etc.).
+            cmd = ["python", _WIZARD_SCRIPT, path, out_path]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if proc.returncode != 0:
+                msg = proc.stderr.strip() or proc.stdout.strip() or f"exit code {proc.returncode}"
+                if reason:
+                    msg = "External analysis failed ({}): {}".format(reason, msg)
+                on_done(False, msg, None)
+                return
+
+            on_done(True, "Results written to {}".format(out_path), None)
+        except Exception as e:
+            on_done(False, str(e), None)
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 def _run_python_analysis(path, on_done):
@@ -35,14 +74,18 @@ def _run_python_analysis(path, on_done):
     on_done(success, message, result=None) with result = DetailedAnalysisResult when success.
     """
     def run():
+        # First try running inside Fusion's Python. If numpy / kst_rating_tool are
+        # unavailable (common in Fusion), fall back to external Python.
         try:
             try:
                 import numpy as np
                 from kst_rating_tool import analyze_constraints_detailed
                 from kst_rating_tool import ConstraintSet, PointConstraint
             except ImportError as e:
-                on_done(False, "kst_rating_tool not found. Run from repo or add repo/src to Python path: {}".format(e), None)
+                # Likely running inside Fusion without numpy. Use external Python.
+                _run_external_python_analysis(path, on_done, reason=str(e))
                 return
+
             with open(path) as f:
                 data = json.load(f)
             pc = data.get("point_contacts", [])
@@ -64,6 +107,7 @@ def _run_python_analysis(path, on_done):
             on_done(True, "Results written to {}".format(out_path), result)
         except Exception as e:
             on_done(False, str(e), None)
+
     threading.Thread(target=run, daemon=True).start()
 
 
