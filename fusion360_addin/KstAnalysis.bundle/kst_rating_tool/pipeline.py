@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from multiprocessing import Pool
-from typing import List, Tuple
+from typing import Dict, List, Set, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -95,7 +95,7 @@ def _rate_motion_all_constraints(
     clin: NDArray[np.float64],
     cpln: NDArray[np.float64],
     cpln_prop: NDArray[np.float64],
-) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """Build one motion's Rcp_pos, Rcp_neg, Rcpin, Rclin_pos, Rclin_neg, Rcpln_pos, Rcpln_neg (match main_loop.m)."""
     no_cp, no_cpin, no_clin, no_cpln = cp.shape[0], cpin.shape[0], clin.shape[0], cpln.shape[0]
     Rcp_pos = np.full(no_cp, np.inf, dtype=float)
@@ -146,6 +146,7 @@ def analyze_constraints(
     total_cp = no_cp + no_cpin + no_clin + no_cpln
 
     mot_hold: List[NDArray[np.float64]] = []
+    mot_seen = set()  # set of tuple(mot_arr) for O(1) duplicate checks
     Rcp_pos_rows: List[NDArray[np.float64]] = []
     Rcp_neg_rows: List[NDArray[np.float64]] = []
     Rcpin_rows: List[NDArray[np.float64]] = []
@@ -173,10 +174,10 @@ def analyze_constraints(
         all_results.sort(key=lambda x: x[0])
         for combo_i, mot_arr, R_two_rows in all_results:
             mot_row = mot_arr.reshape(1, -1)
-            if mot_hold:
-                already = np.any(np.all(np.vstack(mot_hold) == mot_row, axis=1))
-                if already:
-                    continue
+            mot_tuple = tuple(mot_arr)
+            if mot_tuple in mot_seen:
+                continue
+            mot_seen.add(mot_tuple)
             mot_hold.append(mot_row.ravel().copy())
             Rcp_pos_rows.append(R_two_rows[0, :no_cp])
             Rcp_neg_rows.append(R_two_rows[1, :no_cp])
@@ -197,12 +198,10 @@ def analyze_constraints(
             mot_arr = mot.as_array().ravel()
             mot_arr = np.round(mot_arr * 1e4) / 1e4
             mot_row = mot_arr.reshape(1, -1)
-            if mot_hold:
-                already = np.any(
-                    np.all(np.vstack(mot_hold) == mot_row, axis=1)
-                )
-                if already:
-                    continue
+            mot_tuple = tuple(mot_arr)
+            if mot_tuple in mot_seen:
+                continue
+            mot_seen.add(mot_tuple)
             mot_hold.append(mot_row.ravel().copy())
 
             input_wr, _ = input_wr_compose(mot, pts, max_d)
@@ -271,6 +270,7 @@ def analyze_constraints_detailed(
     total_cp = no_cp + no_cpin + no_clin + no_cpln
 
     mot_hold: List[NDArray[np.float64]] = []
+    mot_map = {}  # tuple(mot_arr) -> index in mot_hold
     Rcp_pos_rows: List[NDArray[np.float64]] = []
     Rcp_neg_rows: List[NDArray[np.float64]] = []
     Rcpin_rows: List[NDArray[np.float64]] = []
@@ -278,7 +278,8 @@ def analyze_constraints_detailed(
     Rclin_neg_rows: List[NDArray[np.float64]] = []
     Rcpln_pos_rows: List[NDArray[np.float64]] = []
     Rcpln_neg_rows: List[NDArray[np.float64]] = []
-    combo_proc_rows: List[NDArray[np.int_]] = []
+    combo_proc_indices: List[int] = []
+    combo_proc_rows_list: List[NDArray[np.int_]] = []
     combo_dup_idx = np.zeros(combo.shape[0], dtype=np.int_)
 
     if n_workers is not None and n_workers > 1:
@@ -300,16 +301,15 @@ def analyze_constraints_detailed(
         all_results_d.sort(key=lambda x: x[0])
         for combo_i, mot_arr, R_two_rows in all_results_d:
             mot_row = mot_arr.reshape(1, -1)
-            if mot_hold:
-                already_arr = np.all(np.vstack(mot_hold) == mot_row, axis=1)
-                already = np.any(already_arr)
-                if already:
-                    idx_existing = int(np.argmax(already_arr))
-                    combo_dup_idx[combo_i] = idx_existing + 1
-                    continue
+            mot_tuple = tuple(mot_arr)
+            if mot_tuple in mot_map:
+                idx_existing = mot_map[mot_tuple]
+                combo_dup_idx[combo_i] = idx_existing + 1
+                continue
             combo_dup_idx[combo_i] = 0
+            mot_map[mot_tuple] = len(mot_hold)
             mot_hold.append(mot_row.ravel().copy())
-            combo_proc_rows.append(np.concatenate([[combo_i + 1], combo[combo_i]]).astype(np.int_))
+            combo_proc_rows_list.append(np.concatenate([[combo_i + 1], combo[combo_i]]).astype(np.int_))
             Rcp_pos_rows.append(R_two_rows[0, :no_cp])
             Rcp_neg_rows.append(R_two_rows[1, :no_cp])
             Rcpin_rows.append(R_two_rows[0, no_cp : no_cp + no_cpin])
@@ -329,14 +329,14 @@ def analyze_constraints_detailed(
             mot_arr = mot.as_array().ravel()
             mot_arr = np.round(mot_arr * 1e4) / 1e4
             mot_row = mot_arr.reshape(1, -1)
+            mot_tuple = tuple(mot_arr)
 
-            if mot_hold:
-                already = np.any(np.all(np.vstack(mot_hold) == mot_row, axis=1))
-                if already:
-                    idx_existing = np.argmax(np.all(np.vstack(mot_hold) == mot_row, axis=1))
-                    combo_dup_idx[combo_i] = idx_existing + 1
-                    continue
+            if mot_tuple in mot_map:
+                idx_existing = mot_map[mot_tuple]
+                combo_dup_idx[combo_i] = idx_existing + 1
+                continue
             combo_dup_idx[combo_i] = 0
+            mot_map[mot_tuple] = len(mot_hold)
 
             input_wr, _ = input_wr_compose(mot, pts, max_d)
             react_wr_5 = react_wr_5_compose(constraints, combo_row, mot.rho)
@@ -351,7 +351,8 @@ def analyze_constraints_detailed(
             Rcpln_pos_rows.append(rcpln_pos)
             Rcpln_neg_rows.append(rcpln_neg)
             mot_hold.append(mot_row.ravel().copy())
-            combo_proc_rows.append(np.concatenate([[combo_i + 1], combo_row]).astype(np.int_))
+            combo_proc_indices.append(combo_i + 1)
+            combo_proc_rows_list.append(combo_row.astype(np.int_))
 
     if not mot_hold:
         R = np.full((1, max(1, total_cp)), np.inf, dtype=float)
@@ -391,7 +392,12 @@ def analyze_constraints_detailed(
     mot_half_rev = np.hstack([-mot_half[:, :6], mot_half[:, 6:]])
     mot_all = np.vstack([mot_half, mot_half_rev])
     mot_all = np.round(mot_all * 1e4) / 1e4
-    combo_proc = np.vstack(combo_proc_rows)
+    if not combo_proc_indices:
+        combo_proc = np.empty((0, combo.shape[1] + 1), dtype=np.int_)
+    else:
+        indices_arr = np.array(combo_proc_indices, dtype=np.int_).reshape(-1, 1)
+        combos_arr = np.vstack(combo_proc_rows_list)
+        combo_proc = np.hstack([indices_arr, combos_arr])
 
     # Match MATLAB unique(mot_all_org, 'rows'): first occurrence per unique motion
     _, uniq_idx = np.unique(mot_all, axis=0, return_index=True)
