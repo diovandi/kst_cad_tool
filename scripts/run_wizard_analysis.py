@@ -35,22 +35,54 @@ def main(argv: list[str]) -> int:
         sys.path.insert(0, str(src_dir))
 
     import numpy as np  # type: ignore
-    from kst_rating_tool import analyze_constraints_detailed, ConstraintSet, PointConstraint
+    from kst_rating_tool import (
+        analyze_constraints_detailed,
+        ConstraintSet,
+        PointConstraint,
+        PinConstraint,
+        LineConstraint,
+        PlaneConstraint,
+    )
 
     with input_path.open() as f:
         data = json.load(f)
 
-    pc = data.get("point_contacts", [])
-    if not pc:
-        print("Input JSON has no 'point_contacts' entries.", file=sys.stderr)
-        return 1
-
     cs = ConstraintSet()
+    pc = data.get("point_contacts", []) or []
     for row in pc:
         if len(row) >= 6:
-            pos = np.array([float(row[0]), float(row[1]), float(row[2])], dtype=float)
-            nrm = np.array([float(row[3]), float(row[4]), float(row[5])], dtype=float)
+            pos = np.array(row[0:3], dtype=float)
+            nrm = np.array(row[3:6], dtype=float)
             cs.points.append(PointConstraint(pos, nrm))
+
+    pins = data.get("pins", []) or []
+    for row in pins:
+        if len(row) >= 6:
+            center = np.array(row[0:3], dtype=float)
+            axis = np.array(row[3:6], dtype=float)
+            cs.pins.append(PinConstraint(center, axis))
+
+    lines = data.get("lines", []) or []
+    for row in lines:
+        if len(row) >= 10:
+            midpoint = np.array(row[0:3], dtype=float)
+            line_dir = np.array(row[3:6], dtype=float)
+            constraint_dir = np.array(row[6:9], dtype=float)
+            length = float(row[9])
+            cs.lines.append(LineConstraint(midpoint, line_dir, constraint_dir, length))
+
+    planes = data.get("planes", []) or []
+    for row in planes:
+        if len(row) >= 7:
+            midpoint = np.array(row[0:3], dtype=float)
+            normal = np.array(row[3:6], dtype=float)
+            ptype = int(row[6])
+            prop = np.array(row[7:], dtype=float) if len(row) > 7 else np.array([], dtype=float)
+            cs.planes.append(PlaneConstraint(midpoint, normal, ptype, prop))
+
+    if cs.total_cp == 0:
+        print("Input JSON has no constraints (points, pins, lines, or planes).", file=sys.stderr)
+        return 1
 
     detailed = analyze_constraints_detailed(cs)
     rating = detailed.rating

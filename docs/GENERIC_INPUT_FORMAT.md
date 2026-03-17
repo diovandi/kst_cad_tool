@@ -12,25 +12,39 @@ One-time analysis: define the constraint set; the script computes WTR, MTR, TOR,
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `version` | integer | Format version (1) |
+| `version` | integer | Format version (**2** — current; version 1 is also accepted by the backend, but only contained `point_contacts`) |
 | `point_contacts` | array of [6] | Each row: `[x, y, z, nx, ny, nz]` — position and unit normal (CP) |
 | `pins` | array of [6] | Each row: `[x, y, z, ax, ay, az]` — center and unit axis (CPIN) |
 | `lines` | array of [10] | Each row: `[mx, my, mz, lx, ly, lz, nx, ny, nz, length]` — midpoint, line dir, constraint normal, length (CLIN) |
-| `planes` | array of object | Each: `{ "midpoint": [x,y,z], "normal": [nx,ny,nz], "type": 1|2, "prop": [...] }` — type 1=rect, 2=circ; prop per thesis (CPLN) |
+| `planes` | array of [7+] | Each row: `[px, py, pz, nx, ny, nz, type, ...prop]` — midpoint, normal, type (1=rect, 2=circ), then property values (CPLN). For rectangular: `[xdir_x, xdir_y, xdir_z, xlen, ydir_x, ydir_y, ydir_z, ylen]`; for circular: `[radius]`. |
 
 All coordinates and vectors are in the same global coordinate system (e.g. part or assembly CS).
 
-### 1.2 Example (analysis only)
+### 1.2 Version history
+
+- **Version 1**: Only `point_contacts` were populated; `pins`, `lines`, `planes` were empty arrays.
+- **Version 2**: All four constraint types are fully supported. The Fusion 360 add-in writes v2 JSON. The backend script (`run_wizard_analysis.py`) accepts both versions.
+
+### 1.3 Example (analysis only)
 
 See [../matlab_script/Input_files/generic_example_analysis.json](../matlab_script/Input_files/generic_example_analysis.json) for a minimal point-contact-only example equivalent to a subset of Thompson's chair.
 
-### 1.3 Mapping to legacy MATLAB variables
+### 1.4 Mapping to legacy MATLAB variables
 
 - `point_contacts` → `cp` (matrix, one row per CP)
 - `pins` → `cpin`
 - `lines` → `clin`
-- `planes` → `cpln` and `cpln_prop`
+- `planes` → `cpln` (first 7 columns) and `cpln_prop` (remaining columns)
 - No `grp_members` / `grp_rev_type` / `grp_srch_spc` in analysis-only input.
+
+### 1.5 Mapping to Python dataclasses
+
+- `point_contacts` → `PointConstraint(position, normal)`
+- `pins` → `PinConstraint(center, axis)`
+- `lines` → `LineConstraint(midpoint, line_dir, constraint_dir, length)`
+- `planes` → `PlaneConstraint(midpoint, normal, type, prop)`
+
+See `src/kst_rating_tool/constraints.py` for details.
 
 ---
 
