@@ -76,6 +76,7 @@ def draw_constraint_markers(app, constraint_list):
     Point: short arrow in orientation direction.
     Pin: line segment along orientation axis.
     Line: line segment from location in orientation direction.
+    Plane: short normal arrow at the plane midpoint.
     """
     if not app or not constraint_list:
         return
@@ -119,6 +120,16 @@ def draw_constraint_markers(app, constraint_list):
                     x + dx * _LINE_DISPLAY_LEN,
                     y + dy * _LINE_DISPLAY_LEN,
                     z + dz * _LINE_DISPLAY_LEN,
+                )
+                points.add(p1)
+                points.add(p2)
+            elif ctype == "Plane":
+                # Visualize plane with a short arrow along its normal.
+                p1 = _point3d(x, y, z)
+                p2 = _point3d(
+                    x + dx * _ARROW_LEN,
+                    y + dy * _ARROW_LEN,
+                    z + dz * _ARROW_LEN,
                 )
                 points.add(p1)
                 points.add(p2)

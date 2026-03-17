@@ -2,12 +2,17 @@
 
 This project is a Python re-implementation of Leonard Rusli's kinematic screw theory (KST) based assembly rating tool, as used in your supervisor's MATLAB scripts and your thesis proposal *"Implementation of Mechanical Assembly Rating Tool Based on Kinematic Screw Theory"*.
 
-Phase 1 focuses on the **backend math engine** only:
+The project has two major components:
 
-- Constraint representation (point, pin, line, plane)
-- Wrench generation and pivot set construction
-- Reciprocal motion computation
-- Resistance calculation and rating metrics (WTR, MRR, MTR, TOR)
+1. **Python backend math engine** (`src/kst_rating_tool/`):
+   - Constraint representation — all four types: **Point, Pin, Line, Plane**
+   - Wrench generation and pivot set construction
+   - Reciprocal motion computation
+   - Resistance calculation and rating metrics (WTR, MRR, MTR, TOR)
+
+2. **CAD integration** (Fusion 360 add-in, Inventor add-in skeleton):
+   - **Fusion 360 add-in** (`fusion360_addin/`): Native command-palette wizard for interactive constraint picking and analysis directly inside Fusion 360. Supports all four constraint types with type-aware selection filters and orientation methods.
+   - **Inventor add-in skeleton** (`inventor_addin/`): C# skeleton for Autodesk Inventor integration.
 
 ### Development environment
 
@@ -83,9 +88,20 @@ You can run the original MATLAB test cases in Python (by loading the `.m` case f
 - **Octave**: `cd matlab_script && octave --no-gui run_case_batch.m <case_number>`
 - **Compare**: `python scripts/compare_octave_python.py <case_name_or_number>`
 
+### Fusion 360 add-in
+
+The primary CAD integration is the **Fusion 360 add-in** (`fusion360_addin/KstAnalysis/`). It provides a native command palette wizard inside Fusion 360 where you can:
+
+- Select constraint type (**Point**, **Pin**, **Line**, or **Plane**)
+- Pick location and orientation directly from the 3D model using type-appropriate selection filters
+- Choose orientation method for Point constraints: **Normal to Plane**, **Two Points**, or **Along Line/Axis**
+- Build a constraint table, then run analysis to get WTR/MRR/MTR/TOR
+
+See **[fusion360_addin/README.md](fusion360_addin/README.md)** for setup instructions.
+
 ### Wizard demo (meeting preview)
 
-A **Python skeleton** of the planned Inventor add-in (Analysis + Optimization wizards) runs without Inventor or MATLAB:
+A **Python skeleton** of the planned add-in (Analysis + Optimization wizards) runs without Fusion 360 or MATLAB:
 
 ```bash
 python scripts/wizard_demo.py
@@ -123,5 +139,7 @@ Two tabs: **Analysis Wizard** (constraint table, Select, Analyze → JSON) and *
 ### Status
 
 - **Python vs Octave/MATLAB:** **All 21 cases pass** (WTR, MRR, MTR, TOR within atol=1e-3, rtol=5%). See [docs/PARKED.md](docs/PARKED.md) and `python scripts/compare_octave_python.py all`.
-- **CAD add-in:** Focus is on the Inventor add-in (analysis and optimization wizards); see [docs/PROJECT_STATUS_SUMMARY.md](docs/PROJECT_STATUS_SUMMARY.md).
+- **Fusion 360 add-in:** Supports all four constraint types (Point, Pin, Line, Plane) with type-aware selection filters, orientation method selection for Point, and JSON export for analysis via external Python. See [fusion360_addin/README.md](fusion360_addin/README.md).
+- **Wizard input JSON:** Version 2 format with `point_contacts`, `pins`, `lines`, and `planes` arrays. See [docs/GENERIC_INPUT_FORMAT.md](docs/GENERIC_INPUT_FORMAT.md).
+- **Inventor add-in:** C# skeleton for Autodesk Inventor; see [docs/PROJECT_STATUS_SUMMARY.md](docs/PROJECT_STATUS_SUMMARY.md).
 

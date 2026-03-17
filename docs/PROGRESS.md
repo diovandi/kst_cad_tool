@@ -1,6 +1,6 @@
 # KST CAD Tool — Progress and Orientation
 
-**Date:** February 25, 2026  
+**Date:** March 17, 2026 (updated)  
 **Purpose:** Snapshot of the current state of the project so you can quickly regain context and resume work.
 
 ---
@@ -11,10 +11,11 @@ This repository is a Python-centric, CAD-integrated reimplementation of Leonard 
 
 - **Python backend** (`src/kst_rating_tool/`): Numerical engine for constraint-based assembly rating and optimization.
 - **MATLAB/Octave reference** (`matlab_script/`): Original OSU scripts used as the ground truth for parity.
+- **Fusion 360 add-in** (`fusion360_addin/`): Python add-in for Autodesk Fusion 360 with native command-palette UI for interactive constraint picking and analysis.
 - **Inventor add-in skeleton** (`inventor_addin/`): C# add-in for Autodesk Inventor that will drive the analysis/optimization wizards.
-- **Wizard demo** (`scripts/wizard_demo.py`): Standalone Python GUI that mimics the planned Inventor wizards for meetings/demos.
+- **Wizard demo** (`scripts/wizard_demo.py`): Standalone Python GUI that mimics the planned wizards for meetings/demos.
 
-Today, the **backend math engine is complete and validated** against Octave/MATLAB for the full 21-case benchmark set. The main remaining work is around **CAD integration, UX, and potential future optimization improvements**.
+Today, the **backend math engine is complete and validated** against Octave/MATLAB for the full 21-case benchmark set. The **Fusion 360 add-in supports all four constraint types** (Point, Pin, Line, Plane) with type-aware selection filters and orientation methods.
 
 For a concise project-level summary see also:
 
@@ -258,6 +259,11 @@ kst_cad_tool/
 │   └── figures/
 ├── scripts/
 ├── src/kst_rating_tool/
+├── fusion360_addin/
+│   ├── KstAnalysis/           # Source add-in for Fusion 360
+│   ├── KstAnalysis.bundle/    # Built bundle
+│   ├── build_bundle.py
+│   └── README.md
 └── inventor_addin/
 ```
 
@@ -265,11 +271,36 @@ kst_cad_tool/
 
 ---
 
-## 6. Inventor add-in and wizard demo status
+## 6. CAD add-ins and wizard demo status
 
-### 6.1 Inventor add-in (`inventor_addin/`)
+### 6.1 Fusion 360 add-in (`fusion360_addin/`)
 
-What exists:
+The primary CAD integration. What exists:
+
+- `KstAnalysis/` — source add-in for Fusion 360:
+  - `KstAnalysis.py` — entry point; registers the Analysis Wizard and Optimization Wizard commands.
+  - `commands/analysis_command.py` — native Fusion command-palette wizard with:
+    - **Type dropdown**: Point, Pin, Line, Plane.
+    - **Orientation method dropdown** (Point only): Normal to Plane, Two Points, Along Line/Axis.
+    - **Dynamic selection filters**: vertices-only for Point/Pin, edges-only for Line, faces-only for Plane.
+    - **Per-type geometry extraction**: location, orientation, line length, plane type/properties.
+    - **JSON export** (v2): writes `wizard_input.json` with all four constraint arrays.
+  - `visualizer.py` — viewport markers for Point (arrow), Pin (axis), Line (segment), Plane (normal arrow).
+- `KstAnalysis.bundle/` — built bundle (created by `build_bundle.py`).
+- `scripts/run_wizard_analysis.py` — external Python script that reads the v2 JSON and runs analysis using `kst_rating_tool`.
+
+High-level flow:
+
+1. User opens the wizard in Fusion 360 (UTILITIES > Scripts and Add-Ins > KST Analysis Wizard).
+2. User selects constraint type, picks geometry from the 3D model.
+3. Add-in builds a v2 JSON file with `point_contacts`, `pins`, `lines`, `planes`.
+4. External Python script runs analysis and returns WTR/MRR/MTR/TOR.
+
+See [fusion360_addin/README.md](../fusion360_addin/README.md) for setup instructions.
+
+### 6.2 Inventor add-in (`inventor_addin/`)
+
+C# skeleton for Autodesk Inventor. What exists:
 
 - C# project `KstAnalysisWizardAddIn.csproj` with:
   - `ApplicationAddInServer.cs` (Inventor add-in entry),
@@ -278,19 +309,12 @@ What exists:
   - `InputFileGenerator.cs` (writes the same generic JSON format used by MATLAB/Python).
 - `Autodesk.KstAnalysisWizard.Inventor.addin` manifest for Inventor registration.
 
-High-level flow:
-
-1. User selects geometry in Inventor.
-2. Add-in builds a JSON file matching `docs/GENERIC_INPUT_FORMAT.md`.
-3. External engine (MATLAB or Python) runs analysis/optimization.
-4. Results are displayed back in the wizard UI.
-
-### 6.2 Wizard demo (`scripts/wizard_demo.py`)
+### 6.3 Wizard demo (`scripts/wizard_demo.py`)
 
 - Pure-Python GUI (tkinter) that mimics the planned add-in:
-  - **Analysis Wizard tab**: define constraints, select, analyze → writes JSON.
+  - **Analysis Wizard tab**: define constraints (Point/Pin/Line/Plane), select, analyze → writes JSON.
   - **Optimization Wizard tab**: select constraints, choose search space, generate optimization plan, and load results.
-- Designed to run on any machine without Inventor or MATLAB for demos.
+- Designed to run on any machine without Fusion 360, Inventor, or MATLAB for demos.
 
 To run:
 
@@ -330,11 +354,17 @@ When you come back to this project, a typical “resume work” sequence:
 
 ## 8. Next likely steps (suggested)
 
-These are the most natural next tasks, consistent with existing docs:
+These are the most natural next tasks:
 
-- **CAD integration**:
-  - Finish wiring the Inventor add-in so it can export constraints and call MATLAB or Python.
-  - Decide whether the first deployed backend is MATLAB (compiled) or Python.
+- **Fusion 360 add-in refinements**:
+  - Test all four constraint types end-to-end in Fusion 360 with real CAD models.
+  - Refine Line constraint: allow user to pick a separate constraint direction (perpendicular to line).
+  - Refine Plane constraint: auto-detect rectangular vs circular from face geometry; extract dimensions for `plane_prop`.
+  - Add constraint editing (select a row in the table and modify it).
+  - Implement example cases in Fusion (4-bolt plate, lip edge contact, threaded insert) to validate constraint modeling.
+- **Constraint modeling guidance**:
+  - Define canonical mapping table (pin/point/line/plane to modeling primitives + DOF effects).
+  - Add UX tooltips to guide users on when to use each constraint type.
 - **Performance / parallelism**:
   - Add optional multiprocessing to `analyze_constraints_detailed` (per-combination or per-motion evaluation).
   - Benchmark against the existing Octave pipeline.
