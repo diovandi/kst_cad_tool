@@ -1,32 +1,43 @@
-# Python Port — Parity Status
+# Python Engine — Validation Status
 
-**Status:** **Parity achieved.** Python matches Octave (and thus MATLAB) for **all 21 cases** (atol=1e-3, rtol=5% on WTR, MRR, MTR, TOR).
+**Status:** **Python is the primary analysis engine.** It is used natively by the Fusion 360 add-in and all wizard scripts. MATLAB/Octave are historical references only — no longer in the active pipeline.
 
-**Verified:** The result files currently in the workspace (`results_python_<case>.txt` vs `matlab_script/results_octave_<case>.txt`) show **21/21 pass** for Python vs Octave.
+**Parity:** Python matches Octave (and thus MATLAB) for **all 21 benchmark cases** (atol=1e-3, rtol=5% on WTR, MRR, MTR, TOR). This was verified during the porting phase and remains the baseline for regression testing.
 
 ---
 
-## How to verify
+## Current architecture
 
-From the repo root:
+The Fusion 360 add-in (`fusion360_addin/KstAnalysis/`) writes a v2 JSON file with all four constraint types (Point, Pin, Line, Plane) and calls `scripts/run_wizard_analysis.py`, which uses the Python `kst_rating_tool` package directly. No MATLAB or Octave installation is needed.
+
+```
+Fusion 360 → wizard_input.json (v2) → run_wizard_analysis.py → kst_rating_tool → WTR/MRR/MTR/TOR
+```
+
+---
+
+## How to re-verify parity (regression testing)
+
+The MATLAB/Octave comparison scripts are still useful for regression testing if you change the Python engine internals:
 
 ```bash
 python scripts/compare_octave_python.py all
 ```
 
-This re-runs Python and Octave for each case and compares. Alternatively, compare existing result files (same tolerances) — the workspace has been verified with all 21 passing.
+This re-runs Python and Octave for each of the 21 benchmark cases and compares WTR/MRR/MTR/TOR. All 21 should pass.
 
 ---
 
 ## Historical note
 
-Earlier documentation (e.g. DEEP_COMPARISON.md and an older PARKED.md) described a state where Python diverged from MATLAB/Octave for some cases (e.g. case4a endcap, case5a/5e printer). Parity work (combo order alignment, duplicate-motion resolution, and related fixes) has since brought **all 21 cases** into agreement. The current state is full parity.
+Earlier documentation (e.g. DEEP_COMPARISON.md and an older version of this file) described a state where Python diverged from MATLAB/Octave for some cases (e.g. case4a endcap, case5a/5e printer). Parity work (combo order alignment, duplicate-motion resolution, and related fixes) brought **all 21 cases** into agreement. That validation is complete and Python is now the production engine.
 
 ---
 
 ## References
 
-- **Full comparison:** [COMPARISON.md](COMPARISON.md)
+- **Parity comparison scripts:** [COMPARISON.md](COMPARISON.md)
 - **Thesis reference comparison (Ch 10/11):** [THESIS_COMPARISON.md](THESIS_COMPARISON.md)
-- **Project status (including parity):** [PROJECT_STATUS_SUMMARY.md](PROJECT_STATUS_SUMMARY.md)
-- **Scripts:** `scripts/compare_octave_python.py`, `scripts/compare_to_thesis.py`, `scripts/run_python_case.py`
+- **Project status:** [PROJECT_STATUS_SUMMARY.md](PROJECT_STATUS_SUMMARY.md)
+- **Fusion 360 add-in:** [fusion360_addin/README.md](../fusion360_addin/README.md)
+- **Scripts:** `scripts/compare_octave_python.py`, `scripts/compare_to_thesis.py`, `scripts/run_python_case.py`, `scripts/run_wizard_analysis.py`

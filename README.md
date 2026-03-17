@@ -138,7 +138,7 @@ Two tabs: **Analysis Wizard** (constraint table, Select, Analyze → JSON) and *
 
 ### Status
 
-- **Python vs Octave/MATLAB:** **All 21 cases pass** (WTR, MRR, MTR, TOR within atol=1e-3, rtol=5%). See [docs/PARKED.md](docs/PARKED.md) and `python scripts/compare_octave_python.py all`.
+- **Python engine:** Primary analysis backend; validated against Octave/MATLAB for **all 21 benchmark cases** (atol=1e-3, rtol=5%). See [docs/PARKED.md](docs/PARKED.md) for validation status.
 - **Fusion 360 add-in:** Supports all four constraint types (Point, Pin, Line, Plane) with type-aware selection filters, orientation method selection for Point, and JSON export for analysis via external Python. See [fusion360_addin/README.md](fusion360_addin/README.md).
 - **Wizard input JSON:** Version 2 format with `point_contacts`, `pins`, `lines`, and `planes` arrays. See [docs/GENERIC_INPUT_FORMAT.md](docs/GENERIC_INPUT_FORMAT.md).
 - **Inventor add-in:** C# skeleton for Autodesk Inventor; see [docs/PROJECT_STATUS_SUMMARY.md](docs/PROJECT_STATUS_SUMMARY.md).
