@@ -172,13 +172,12 @@ def _parse_optional_matrix_or_single(
     return None
 
 
-def _extract_active_branch(text: str) -> str:
-    """Extract the active code branch from a MATLAB file with conditionals.
+def _extract_active_branch(text: str, *, no_snap_value: int = 0) -> str:
+    """Extract a specific no_snap branch from a MATLAB file with conditionals.
 
     Handles case4a-style files with ``if no_snap==0 ... elseif no_snap==2 ...``
-    by extracting only the first branch (``no_snap==0``).
+    by extracting the requested branch body (default ``no_snap==0``).
 
-    Also strips ``if ~exist('no_snap'...)`` preamble lines.
     Returns the full text unchanged for files without ``no_snap`` conditionals.
     """
     # Strip single-line comments
@@ -192,12 +191,12 @@ def _extract_active_branch(text: str) -> str:
             lines.append(line)
     joined = "\n".join(lines)
 
-    # Check for no_snap conditional pattern
-    m_branch = re.search(r'if\s+no_snap\s*==\s*0\b', joined)
+    # Check for no_snap conditional pattern (match both if/elseif)
+    m_branch = re.search(rf'\b(if|elseif)\s+no_snap\s*==\s*{int(no_snap_value)}\b', joined)
     if not m_branch:
         return text  # no conditional — return unchanged
 
-    # Find the start of the first branch (right after 'if no_snap==0')
+    # Find the start of the chosen branch (right after 'if/elseif no_snap==<value>')
     branch_start = m_branch.end()
 
     # Find the end: the next top-level 'elseif', 'else', or 'end' at the same nesting level
@@ -228,8 +227,13 @@ def _extract_active_branch(text: str) -> str:
         else:
             pos = kw_pos + len(kw)
 
-    # Return everything before the if-block + the first branch content
-    preamble = joined[:m_branch.start()]
+    # Return everything before the if-block (preamble) + the selected branch content.
+    # Important: if the selected branch is an `elseif`, we must NOT include earlier
+    # branches in the returned text, or parsing will see multiple conflicting
+    # assignments (cp1=..., cp=..., etc.).
+    m_if_block = re.search(r'\bif\s+no_snap\s*==\s*\d+\b', joined)
+    preamble_end = m_if_block.start() if m_if_block else 0
+    preamble = joined[:preamble_end]
     branch_body = joined[branch_start:branch_end]
     return preamble + "\n" + branch_body
 
@@ -238,6 +242,7 @@ def load_case_m_file(
     path: str | Path,
     *,
     normalize_normals: bool = True,
+    no_snap_value: int = 0,
 ) -> ConstraintSet:
     """Load a MATLAB case file and return a ConstraintSet.
 
@@ -245,7 +250,7 @@ def load_case_m_file(
     ``cpln``, ``cpln_prop``.
 
     Handles conditional files (e.g. case4a with ``no_snap`` branches) by extracting
-    only the first branch.
+    only the requested branch (default ``no_snap_value=0``).
 
     Parameters
     ----------
@@ -253,12 +258,14 @@ def load_case_m_file(
         Path to the .m case file (e.g. matlab_script/Input_files/case1a_chair_height.m).
     normalize_normals
         If True (default), normalize each row's normal (columns 4:6) as in input_preproc.m.
+    no_snap_value
+        For files that branch on ``no_snap``, select which branch to parse (default 0).
     """
     path = Path(path)
     text = path.read_text(encoding="utf-8", errors="replace")
 
-    # Extract the active branch for files with conditionals (e.g. case4a)
-    active_text = _extract_active_branch(text)
+    # Extract the chosen branch for files with conditionals (e.g. case4a)
+    active_text = _extract_active_branch(text, no_snap_value=no_snap_value)
 
     # Strip comments for content-based parsing
     content = " ".join(
