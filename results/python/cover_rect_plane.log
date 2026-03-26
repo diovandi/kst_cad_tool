@@ -1,0 +1,18 @@
+2026-03-26 18:40:44 [INFO] Starting wizard analysis
+2026-03-26 18:40:44 [INFO] Input JSON: C:\Users\diovandi\kst_cad_tool\test_inputs\cover_rect_plane.json
+2026-03-26 18:40:44 [INFO] Output txt: C:\Users\diovandi\kst_cad_tool\results\python\cover_rect_plane.tsv
+2026-03-26 18:40:46 [DEBUG] Raw JSON keys: ['version', 'point_contacts', 'pins', 'lines', 'planes']
+2026-03-26 18:40:46 [INFO] point_contacts: 4
+2026-03-26 18:40:46 [DEBUG] CP1 pos=[0. 2. 0.] nrm=[ 0.  0. -1.]
+2026-03-26 18:40:46 [DEBUG] CP2 pos=[4. 2. 0.] nrm=[ 0.  0. -1.]
+2026-03-26 18:40:46 [DEBUG] CP3 pos=[0. 0. 0.] nrm=[ 0.  0. -1.]
+2026-03-26 18:40:46 [DEBUG] CP4 pos=[4. 0. 0.] nrm=[ 0.  0. -1.]
+2026-03-26 18:40:46 [INFO] pins: 0
+2026-03-26 18:40:46 [INFO] lines: 4
+2026-03-26 18:40:46 [DEBUG] LINE1 midpoint=[0. 1. 0.] line_dir=[0. 1. 0.] constraint_dir=[1. 0. 0.] length=2.0
+2026-03-26 18:40:46 [DEBUG] LINE2 midpoint=[4. 1. 0.] line_dir=[0. 1. 0.] constraint_dir=[-1.  0.  0.] length=2.0
+2026-03-26 18:40:46 [DEBUG] LINE3 midpoint=[2. 0. 0.] line_dir=[1. 0. 0.] constraint_dir=[0. 1. 0.] length=4.0
+2026-03-26 18:40:46 [DEBUG] LINE4 midpoint=[2. 2. 0.] line_dir=[1. 0. 0.] constraint_dir=[ 0. -1.  0.] length=4.0
+2026-03-26 18:40:46 [INFO] planes: 1
+2026-03-26 18:40:46 [DEBUG] PLANE1 midpoint=[2. 1. 0.] normal=[0. 0. 1.] type=1 prop_size=8 prop=[1. 0. 0. 4. 0. 1. 0. 2.]
+2026-03-26 18:40:46 [INFO] Analysis complete: WTR=1.9998, MRR=1.5000, MTR=2.0000, TOR=1.3333

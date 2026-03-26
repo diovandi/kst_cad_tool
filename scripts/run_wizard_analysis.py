@@ -93,6 +93,7 @@ def main(argv: list[str]) -> int:
         LineConstraint,
         PlaneConstraint,
     )
+    from kst_rating_tool.reporting import result_close, result_open, write_report
 
     try:
         with input_path.open() as f:
@@ -220,6 +221,29 @@ def main(argv: list[str]) -> int:
             f.write(
                 "{}\t{}\t{}\t{}\n".format(rating.WTR, rating.MRR, rating.MTR, rating.TOR)
             )
+
+        # MATLAB-style HTML report alongside the TSV/JSON outputs.
+        mot_all = detailed.mot_all
+        if mot_all.size:
+            uniq_idx = np.unique(mot_all, axis=0, return_index=True)[1]
+            mot_all_uniq = mot_all[uniq_idx, :]
+        else:
+            mot_all_uniq = np.empty((0, 10), dtype=float)
+        html_f = result_open(input_path.stem, output_dir=output_path.parent)
+        try:
+            write_report(
+                html_f,
+                inputfile=input_path.stem,
+                rating=detailed.rating,
+                mot_all_uniq=mot_all_uniq,
+                R_uniq=detailed.Ri,
+                total_cp=int(detailed.Ri.shape[1]) if detailed.Ri.size else 0,
+                no_mot=int(detailed.Ri.shape[0]) if detailed.Ri.size else 0,
+                combo=detailed.combo,
+                combo_proc=detailed.combo_proc,
+            )
+        finally:
+            result_close(html_f)
 
         with detail_json_path.open("w", encoding="utf-8") as f:
             json.dump(

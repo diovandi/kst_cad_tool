@@ -1,0 +1,28 @@
+METRICS
+WTR	1
+MRR	1.333333333
+MTR	1.6272
+TOR	1.2204
+LAR_WTR	1
+LAR_MTR	0.6145526057
+
+COUNTS
+total_combo	210
+combo_proc_count	3
+no_mot_half	3
+no_mot_unique	3
+
+WTR_MOTION
+Om_x	Om_y	Om_z	Mu_x	Mu_y	Mu_z	Rho_x	Rho_y	Rho_z	Pitch	Total_Resistance
+0	0	-0	-1	0	0	0	0	0	inf	1
+
+CP_TABLE
+CP	Individual_Rating	Active_Pct	Best_Resistance_Pct
+1	0.9408	16.666667	16.666667
+2	0.9408	16.666667	16.666667
+3	0	0.000000	0.000000
+4	0.9408	16.666667	0.000000
+5	0.9408	16.666667	0.000000
+6	0	0.000000	0.000000
+7	1	33.333333	33.333333
+8	2	33.333333	33.333333

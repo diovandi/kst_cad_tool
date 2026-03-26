@@ -1,0 +1,17 @@
+2026-03-26 18:40:00 [INFO] Starting wizard analysis
+2026-03-26 18:40:00 [INFO] Input JSON: C:\Users\diovandi\kst_cad_tool\test_inputs\endcap_circular_plane.json
+2026-03-26 18:40:00 [INFO] Output txt: C:\Users\diovandi\kst_cad_tool\results\python\endcap_circular_plane.tsv
+2026-03-26 18:40:01 [DEBUG] Raw JSON keys: ['version', 'point_contacts', 'pins', 'lines', 'planes']
+2026-03-26 18:40:01 [INFO] point_contacts: 6
+2026-03-26 18:40:01 [DEBUG] CP1 pos=[-0.588  0.161  0.   ] nrm=[ 0. -1.  0.]
+2026-03-26 18:40:01 [DEBUG] CP2 pos=[-0.588 -0.161  0.   ] nrm=[0. 1. 0.]
+2026-03-26 18:40:01 [DEBUG] CP3 pos=[-0.588  0.     0.   ] nrm=[0. 0. 1.]
+2026-03-26 18:40:01 [DEBUG] CP4 pos=[0.588 0.161 0.   ] nrm=[ 0. -1.  0.]
+2026-03-26 18:40:01 [DEBUG] CP5 pos=[ 0.588 -0.161  0.   ] nrm=[0. 1. 0.]
+2026-03-26 18:40:01 [DEBUG] CP6 pos=[0.588 0.    0.   ] nrm=[0. 0. 1.]
+2026-03-26 18:40:01 [INFO] pins: 1
+2026-03-26 18:40:01 [DEBUG] PIN1 center=[0. 0. 0.] axis=[0. 0. 1.]
+2026-03-26 18:40:01 [INFO] lines: 0
+2026-03-26 18:40:01 [INFO] planes: 1
+2026-03-26 18:40:01 [DEBUG] PLANE1 midpoint=[0. 0. 0.] normal=[ 0.  0. -1.] type=2 prop_size=1 prop=[0.625]
+2026-03-26 18:40:01 [INFO] Analysis complete: WTR=1.0000, MRR=1.3333, MTR=1.6272, TOR=1.2204

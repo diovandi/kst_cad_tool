@@ -30,14 +30,28 @@ from kst_rating_tool.reference_data import CASE_NUM_TO_NAME
 
 
 def main() -> int:
-    args = [a for a in sys.argv[1:] if a != "--full"]
-    full = "--full" in sys.argv[1:]
-    if len(args) != 1:
-        print("Usage: python scripts/run_python_case.py <case_name_or_number> [--full]", file=sys.stderr)
+    full = False
+    no_snap_value = 0
+    positional: list[str] = []
+    it = iter(sys.argv[1:])
+    for a in it:
+        if a == "--full":
+            full = True
+        elif a == "--no-snap":
+            try:
+                no_snap_value = int(next(it))
+            except Exception:
+                print("Usage: python scripts/run_python_case.py <case_name_or_number> [--full] [--no-snap N]", file=sys.stderr)
+                return 1
+        else:
+            positional.append(a)
+
+    if len(positional) != 1:
+        print("Usage: python scripts/run_python_case.py <case_name_or_number> [--full] [--no-snap N]", file=sys.stderr)
         print("Example: python scripts/run_python_case.py case1a_chair_height", file=sys.stderr)
         return 1
 
-    arg = args[0].strip()
+    arg = positional[0].strip()
     if arg.isdigit():
         n = int(arg)
         if n < 1 or n > 21:
@@ -57,18 +71,17 @@ def main() -> int:
 
     from kst_rating_tool.io_legacy import load_case_m_file
     from kst_rating_tool import analyze_constraints, analyze_constraints_detailed
-    from kst_rating_tool.reporting import write_full_report_txt
+    from kst_rating_tool.reporting import result_close, result_open, write_full_report_txt, write_report
+    import numpy as np
 
-    constraints = load_case_m_file(case_path)
+    constraints = load_case_m_file(case_path, no_snap_value=no_snap_value)
 
+    detailed = analyze_constraints_detailed(constraints)
+    results = detailed.rating
     if full:
-        detailed = analyze_constraints_detailed(constraints)
-        results = detailed.rating
         full_path = repo_root / "results" / "python" / f"results_python_{case_name}_full.txt"
         write_full_report_txt(detailed, full_path)
         print(f"Wrote {full_path} (full report)")
-    else:
-        results = analyze_constraints(constraints)
 
     out_path = repo_root / "results" / "python" / f"results_python_{case_name}.txt"
     with open(out_path, "w") as f:
@@ -76,6 +89,32 @@ def main() -> int:
         f.write(f"MRR\t{results.MRR:.10g}\n")
         f.write(f"MTR\t{results.MTR:.10g}\n")
         f.write(f"TOR\t{results.TOR:.10g}\n")
+
+    # HTML report (MATLAB-style "Result - <inputfile>.html")
+    # Use detailed output so the motion + CP tables are available.
+    out_dir = repo_root / "results" / "python"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mot_all = detailed.mot_all
+    if mot_all.size:
+        uniq_idx = np.unique(mot_all, axis=0, return_index=True)[1]
+        mot_all_uniq = mot_all[uniq_idx, :]
+    else:
+        mot_all_uniq = np.empty((0, 10), dtype=float)
+    html_f = result_open(case_name, output_dir=out_dir)
+    try:
+        write_report(
+            html_f,
+            inputfile=case_name,
+            rating=detailed.rating,
+            mot_all_uniq=mot_all_uniq,
+            R_uniq=detailed.Ri,
+            total_cp=int(detailed.Ri.shape[1]) if detailed.Ri.size else 0,
+            no_mot=int(detailed.Ri.shape[0]) if detailed.Ri.size else 0,
+            combo=detailed.combo,
+            combo_proc=detailed.combo_proc,
+        )
+    finally:
+        result_close(html_f)
 
     print(f"Wrote {out_path} (WTR={results.WTR:.4f}, MRR={results.MRR:.4f}, MTR={results.MTR:.4f}, TOR={results.TOR:.4f})")
     return 0
