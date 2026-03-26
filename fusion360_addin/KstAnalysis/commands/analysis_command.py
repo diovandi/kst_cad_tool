@@ -65,28 +65,89 @@ def _get_point_from_entity(entity):
     return (0.0, 0.0, 0.0)
 
 
+def _normalize_vec3(vx, vy, vz):
+    """Return a unit vector or None if too small."""
+    L = (vx * vx + vy * vy + vz * vz) ** 0.5
+    if L > 1e-10:
+        return (vx / L, vy / L, vz / L)
+    return None
+
+
+def _try_get_axis_dir_from_entity(entity):
+    """
+    Return a unit vector along the geometric axis for:
+    - straight line edges
+    - circular edges (hole circumference) via their circle axis
+    - cylindrical/conical faces via their cylinder/cone axis
+    Returns None if it cannot infer an axis direction.
+    """
+    geom = getattr(entity, "geometry", None)
+    if geom is None:
+        return None
+
+    # Many Fusion curve/surface geometry types expose an `axis`.
+    if hasattr(geom, "axis"):
+        a = geom.axis
+        # axis may be a Line3D (direction property)...
+        if hasattr(a, "direction"):
+            d = a.direction
+            v = _normalize_vec3(d.x, d.y, d.z)
+            if v is not None:
+                return v
+        # ...or a Vector3D with x/y/z.
+        if hasattr(a, "x") and hasattr(a, "y") and hasattr(a, "z"):
+            v = _normalize_vec3(a.x, a.y, a.z)
+            if v is not None:
+                return v
+        # ...or a line-like object with start/end points.
+        if hasattr(a, "startPoint") and hasattr(a, "endPoint"):
+            s, e = a.startPoint, a.endPoint
+            v = _normalize_vec3(e.x - s.x, e.y - s.y, e.z - s.z)
+            if v is not None:
+                return v
+
+    # Straight edge direction from start/end points.
+    if hasattr(geom, "startPoint") and hasattr(geom, "endPoint"):
+        s, e = geom.startPoint, geom.endPoint
+        v = _normalize_vec3(e.x - s.x, e.y - s.y, e.z - s.z)
+        if v is not None:
+            return v
+
+    if hasattr(geom, "direction"):
+        d = geom.direction
+        v = _normalize_vec3(d.x, d.y, d.z)
+        if v is not None:
+            return v
+
+    return None
+
+
 def _get_normal_or_axis_from_entity(entity):
-    """Return (nx,ny,nz) unit vector from a face (normal) or edge (direction)."""
-    if hasattr(entity, "geometry"):
-        geom = entity.geometry
-        if hasattr(geom, "normal"):
-            n = geom.normal
-            L = (n.x**2 + n.y**2 + n.z**2) ** 0.5
-            if L > 1e-10:
-                return (n.x / L, n.y / L, n.z / L)
-        if hasattr(geom, "startPoint") and hasattr(geom, "endPoint"):
-            s, e = geom.startPoint, geom.endPoint
-            dx, dy, dz = e.x - s.x, e.y - s.y, e.z - s.z
-            L = (dx*dx + dy*dy + dz*dz) ** 0.5
-            if L > 1e-10:
-                return (dx / L, dy / L, dz / L)
+    """
+    Return a unit vector for a picked entity:
+    - cylindrical/circular geometry -> axis direction (pin axis / hole centerline)
+    - planar faces -> face normal
+    - straight line edges -> edge direction
+    """
+    axis = _try_get_axis_dir_from_entity(entity)
+    if axis is not None:
+        return axis
+
+    geom = getattr(entity, "geometry", None)
+    if geom is not None and hasattr(geom, "normal"):
+        n = geom.normal
+        v = _normalize_vec3(n.x, n.y, n.z)
+        if v is not None:
+            return v
+
     if hasattr(entity, "pointOnFace") and hasattr(entity, "normal"):
         n = entity.normal
         if n:
-            L = (n.x**2 + n.y**2 + n.z**2) ** 0.5
-            if L > 1e-10:
-                return (n.x / L, n.y / L, n.z / L)
-    return (0, 0, 1)
+            v = _normalize_vec3(n.x, n.y, n.z)
+            if v is not None:
+                return v
+
+    return (0.0, 0.0, 1.0)
 
 
 def _compute_orthonormal_basis_from_normal(nx, ny, nz):
@@ -494,6 +555,9 @@ class AnalysisCommand:
             True,
         )
 
+        # Run analysis without closing the dialog (OK will close the command).
+        run_analysis_action = cmd_inputs.addBoolValueInput("kst_run_analysis", "Run Analysis", False, "", False)
+
         cmd_inputs.addTextBoxCommandInput(
             "kst_results",
             "Results",
@@ -597,6 +661,8 @@ class AnalysisCommand:
                     elif point_method == "Along Line/Axis":
                         orient_sel.isVisible = True
                         orient_sel.addSelectionFilter("Edges")
+                        # Allow cylindrical faces too (hole wall -> cylinder axis)
+                        orient_sel.addSelectionFilter("Faces")
                     elif point_method == "Two Points":
                         # Two-point orientation uses a separate modal picker; hide this selection box.
                         orient_sel.isVisible = False
@@ -609,8 +675,9 @@ class AnalysisCommand:
                     orient_method.isVisible = False
                     # Location: vertex for pin center
                     loc_sel.addSelectionFilter("Vertices")
-                    # Orientation: edge as pin axis
+                    # Orientation: edge (line/circle) or cylindrical face as pin axis
                     orient_sel.addSelectionFilter("Edges")
+                    orient_sel.addSelectionFilter("Faces")
                 elif ctype == "Line":
                     orient_method.isVisible = False
                     orient_sel.isVisible = False
@@ -952,12 +1019,16 @@ class AnalysisCommand:
                                         ui.messageBox("Normal to Plane requires selecting a face (for the face normal).")
                                         return
                                 elif method == "Along Line/Axis":
-                                    if orient_geom is None or not (hasattr(orient_geom, "startPoint") and hasattr(orient_geom, "endPoint")):
-                                        _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Along-line missing straight edge")
-                                        ui.messageBox("Along Line/Axis requires selecting a straight edge (for direction).")
+                                    axis_dir = _try_get_axis_dir_from_entity(orient_ent)
+                                    if axis_dir is None:
+                                        _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Along-line missing axis geometry")
+                                        ui.messageBox("Along Line/Axis requires selecting an edge/face that has an axis (straight edge, circular edge, or cylindrical face).")
                                         return
                                 pt = _get_point_from_entity(loc_ent)
-                                normal = _get_normal_or_axis_from_entity(orient_ent)
+                                if method == "Along Line/Axis":
+                                    normal = _try_get_axis_dir_from_entity(orient_ent)
+                                else:
+                                    normal = _get_normal_or_axis_from_entity(orient_ent)
                                 loc_str = "{}, {}, {}".format(pt[0], pt[1], pt[2])
                                 orient_str = "{}, {}, {}".format(normal[0], normal[1], normal[2])
 
@@ -974,17 +1045,14 @@ class AnalysisCommand:
                                 orient_ent = orient_sel.selection(0).entity
                             except Exception:
                                 _step("ui_add_constraint", "SKIP", ctype=ctype, cp_name=cp_name, reason="Missing pin location or axis selection")
-                                ui.messageBox("For a Pin, pick a vertex (location) and an edge (axis).")
+                                ui.messageBox("For a Pin, pick a vertex (location) and an edge (line/circle) or cylindrical face (axis).")
                                 return
-                            orient_geom = getattr(orient_ent, "geometry", None)
-                            geom_type_name = type(orient_geom).__name__.lower() if orient_geom is not None else ""
-                            # For now, accept only edges that Fusion reports as line geometry.
-                            if "line" not in geom_type_name:
-                                _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Pin axis not straight line geometry")
-                                ui.messageBox("For a Pin, pick a straight edge (line geometry) for the axis.")
+                            axis = _try_get_axis_dir_from_entity(orient_ent)
+                            if axis is None:
+                                _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Pin axis missing axis geometry")
+                                ui.messageBox("For a Pin, select geometry that defines an axis (straight edge, circular edge, or cylindrical face).")
                                 return
                             pt = _get_point_from_entity(loc_ent)
-                            axis = _get_normal_or_axis_from_entity(orient_ent)
                             row = {
                                 "cp_name": cp_name,
                                 "type": ctype,
@@ -1069,6 +1137,7 @@ class AnalysisCommand:
                         try:
                             import visualizer
                             visualizer.draw_constraint_markers(app, state["constraints"])
+                            visualizer.clear_kst_weakest_constraint_arrows(app)
                         except Exception:
                             pass
 
@@ -1081,6 +1150,124 @@ class AnalysisCommand:
                             pass
                         _update_pick_feedback()
 
+                    elif changed.id == "kst_run_analysis" and getattr(run_analysis_action, "value", False):
+                        # Momentary button behavior
+                        run_analysis_action.value = False
+
+                        if not state["constraints"]:
+                            _step("run_analysis_in_dialog", "SKIP", reason="No constraints")
+                            ui.messageBox("Add at least one constraint before running analysis.")
+                            return
+
+                        # Clear stale arrows until we re-render from the latest analysis.
+                        try:
+                            import visualizer
+                            visualizer.clear_kst_weakest_constraint_arrows(app)
+                        except Exception:
+                            pass
+
+                        # Pre-run summary: let the user verify that constraint picks are correct.
+                        _step("run_analysis_in_dialog", "START", constraints_total=len(state["constraints"]))
+                        summary_lines = []
+                        for i, r in enumerate(state["constraints"], start=1):
+                            cp_name = r.get("cp_name", "")
+                            ctype = r.get("type", "Point")
+                            loc = r.get("location", "")
+                            ori = r.get("orientation", "")
+                            summary_lines.append(f"{i}. {cp_name} [{ctype}] loc=({loc}) mm  orient=({ori})")
+                        summary_text = (
+                            "KST Analysis inputs (units: mm)\n\n"
+                            + "\n".join(summary_lines)
+                            + "\n\nProceed with analysis?"
+                        )
+
+                        try:
+                            confirm = ui.messageBox(
+                                summary_text,
+                                "Confirm Constraints",
+                                adsk.core.MessageBoxButtonTypes.OKCancelButtonType,
+                            )
+                            if hasattr(adsk.core, "MessageBoxResult") and confirm != adsk.core.MessageBoxResult.OK:
+                                _step("run_analysis_in_dialog_preconfirm", "SKIP", reason="User cancelled")
+                                return
+                        except Exception:
+                            # If OK/Cancel isn't available, show OK-only summary.
+                            ui.messageBox(summary_text, "Confirm Constraints")
+
+                        in_path = _write_input_json()
+                        out_path = _run_external_analysis(in_path)
+                        _update_results_box_from_file(out_path)
+
+                        # If the external analysis produced a detailed sidecar JSON,
+                        # render one weakest-resistance motion arrow per constraint.
+                        try:
+                            detail_path = os.path.join(state["output_dir"], "results_wizard_detailed.json")
+                            if os.path.isfile(detail_path):
+                                with open(detail_path, "r", encoding="utf-8") as f:
+                                    detail = json.load(f)
+                                if detail.get("success") and detail.get("Ri") and detail.get("mot_all") and detail.get("constraints"):
+                                    Ri = detail["Ri"]
+                                    mot_all = detail["mot_all"]
+                                    constraints_detail = detail["constraints"]
+
+                                    n_motions = len(Ri)
+                                    n_constraints = len(constraints_detail)
+                                    if n_motions > 0 and n_constraints > 0:
+                                        weakest_arrows = []
+                                        for j in range(n_constraints):
+                                            best_i = 0
+                                            best_val = None
+                                            for i in range(n_motions):
+                                                row = Ri[i]
+                                                if not row or j >= len(row):
+                                                    continue
+                                                v = row[j]
+                                                try:
+                                                    vf = float(v)
+                                                except Exception:
+                                                    continue
+                                                if best_val is None or vf > best_val:
+                                                    best_val = vf
+                                                    best_i = i
+
+                                            best_val_f = float(best_val) if best_val is not None else 0.0
+
+                                            c = constraints_detail[j]
+                                            loc = c.get("location") or [0.0, 0.0, 0.0]
+                                            # mot_all layout: [omu(3), mu(3), rho(3), h]
+                                            mu = [0.0, 0.0, 1.0]
+                                            if 0 <= best_i < len(mot_all):
+                                                mrow = mot_all[best_i]
+                                                if mrow and len(mrow) >= 6:
+                                                    mu = mrow[3:6]
+
+                                            dx, dy, dz = float(mu[0]), float(mu[1]), float(mu[2])
+                                            mag = (dx * dx + dy * dy + dz * dz) ** 0.5
+                                            if mag < 1e-12:
+                                                # Fallback: use the constraint's orientation.
+                                                ori = c.get("orientation") or [0.0, 0.0, 1.0]
+                                                dx, dy, dz = float(ori[0]), float(ori[1]), float(ori[2])
+                                                mag = (dx * dx + dy * dy + dz * dz) ** 0.5
+                                                if mag < 1e-12:
+                                                    dx, dy, dz = 0.0, 0.0, 1.0
+                                                    mag = 1.0
+
+                                            direction = [dx / mag, dy / mag, dz / mag]
+                                            weakest_arrows.append(
+                                                {"location": loc, "direction": direction, "strength": best_val_f}
+                                            )
+
+                                        try:
+                                            import visualizer
+                                            # Draw/refresh in the viewport.
+                                            visualizer.draw_constraint_weakest_arrows(app, weakest_arrows)
+                                        except Exception:
+                                            pass
+                        except Exception:
+                            pass
+
+                        _step("run_analysis_in_dialog", "SUCCESS", out_path=out_path)
+
                     elif changed.id == "kst_remove_last" and getattr(remove_last_action, "value", False):
                         remove_last_action.value = False
                         if state["constraints"]:
@@ -1090,6 +1277,7 @@ class AnalysisCommand:
                             try:
                                 import visualizer
                                 visualizer.draw_constraint_markers(app, state["constraints"])
+                                visualizer.clear_kst_weakest_constraint_arrows(app)
                             except Exception:
                                 pass
                             cur_type = type_in.selectedItem.name if type_in.selectedItem else "Point"
@@ -1124,59 +1312,24 @@ class AnalysisCommand:
 
             def notify(self, event_args):
                 try:
-                    if not state["constraints"]:
-                        _step("run_analysis", "SKIP", reason="No constraints")
-                        ui.messageBox("Add at least one constraint before running analysis.")
-                        return
-
-                    # Pre-run summary: let the user verify that constraint picks are correct.
-                    _step("run_analysis", "START", constraints_total=len(state["constraints"]))
-                    preconfirm_success = False
-                    summary_lines = []
-                    for i, r in enumerate(state["constraints"], start=1):
-                        cp_name = r.get("cp_name", "")
-                        ctype = r.get("type", "Point")
-                        loc = r.get("location", "")
-                        ori = r.get("orientation", "")
-                        summary_lines.append(f"{i}. {cp_name} [{ctype}] loc=({loc}) mm  orient=({ori})")
-                    summary_text = (
-                        "KST Analysis inputs (units: mm)\n\n"
-                        + "\n".join(summary_lines)
-                        + "\n\nProceed with analysis?"
-                    )
+                    # OK closes the dialog. If results exist, show them as a final popup;
+                    # otherwise just exit (users can run in-dialog via "Run Analysis").
                     try:
-                        confirm = ui.messageBox(
-                            summary_text,
-                            "Confirm Constraints",
-                            adsk.core.MessageBoxButtonTypes.OKCancelButtonType,
-                        )
-                        # Prefer enum-based check if available.
-                        if hasattr(adsk.core, "MessageBoxResult"):
-                            if confirm != adsk.core.MessageBoxResult.OK:
-                                _step("run_analysis_preconfirm", "SKIP", reason="User cancelled pre-run")
-                                return
-                            preconfirm_success = True
-                        else:
-                            # Fallback: detect cancel-like text.
-                            if "cancel" in str(confirm).lower():
-                                _step("run_analysis_preconfirm", "SKIP", reason="User cancelled pre-run (fallback detection)")
-                                return
-                            preconfirm_success = True
+                        out_path = os.path.join(state["output_dir"], "results_wizard.txt")
+                        if os.path.isfile(out_path) and os.path.getsize(out_path) > 0:
+                            with open(out_path, "r", encoding="utf-8") as f:
+                                lines = f.read().strip().splitlines()
+                            if len(lines) >= 2:
+                                parts = lines[1].split("\t")
+                                if len(parts) >= 4:
+                                    ui.messageBox(
+                                        f"WTR={parts[0]}\nMRR={parts[1]}\nMTR={parts[2]}\nTOR={parts[3]}\n\n{out_path}",
+                                        "KST Analysis Results",
+                                    )
                     except Exception:
-                        # If Fusion's messageBox doesn't support OK/Cancel in this environment,
-                        # fall back to an OK-only confirmation.
-                        ui.messageBox(summary_text, "Confirm Constraints")
-                        _step("run_analysis_preconfirm", "SUCCESS", reason="OK-only confirmation fallback")
-
-                    if preconfirm_success:
-                        _step("run_analysis_preconfirm", "SUCCESS", reason="User confirmed pre-run")
-
-                    in_path = _write_input_json()
-                    out_path = _run_external_analysis(in_path)
-                    _update_results_box_from_file(out_path)
-                    _step("run_analysis", "SUCCESS", out_path=out_path)
+                        pass
                 except Exception as e:
-                    _step("run_analysis", "FAIL", error=str(e))
+                    _step("execute_close", "FAIL", error=str(e))
                     ui.messageBox(f"KST analysis failed: {e}")
 
         class _DestroyHandler(adsk.core.CommandEventHandler):

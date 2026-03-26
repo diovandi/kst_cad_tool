@@ -1,0 +1,9 @@
+2026-03-26 14:05:46 [INFO] Starting wizard analysis
+2026-03-26 14:05:46 [INFO] Input JSON: C:\Users\diovandi\kst_cad_tool\_tmp_wizard\empty_wizard_input.json
+2026-03-26 14:05:46 [INFO] Output txt: C:\Users\diovandi\kst_cad_tool\_tmp_wizard\results_wizard_empty_test.txt
+2026-03-26 14:05:48 [DEBUG] Raw JSON keys: ['version', 'point_contacts', 'pins', 'lines', 'planes']
+2026-03-26 14:05:48 [INFO] point_contacts: 0
+2026-03-26 14:05:48 [INFO] pins: 0
+2026-03-26 14:05:48 [INFO] lines: 0
+2026-03-26 14:05:48 [INFO] planes: 0
+2026-03-26 14:05:48 [ERROR] Input JSON has no constraints (points, pins, lines, or planes).
