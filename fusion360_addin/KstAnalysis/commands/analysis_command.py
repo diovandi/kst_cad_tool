@@ -1026,7 +1026,21 @@ class AnalysisCommand:
                                         return
                                 pt = _get_point_from_entity(loc_ent)
                                 if method == "Along Line/Axis":
-                                    normal = _try_get_axis_dir_from_entity(orient_ent)
+                                    # Reuse the validated axis direction from above (avoid a second
+                                    # unsecured call that could return None).
+                                    normal = axis_dir
+                                    if normal is None:
+                                        _step(
+                                            "ui_add_constraint",
+                                            "FAIL",
+                                            ctype=ctype,
+                                            cp_name=cp_name,
+                                            reason="Along-line missing axis geometry (recheck)",
+                                        )
+                                        ui.messageBox(
+                                            "Along Line/Axis requires selecting an edge/face that has an axis (straight edge, circular edge, or cylindrical face)."
+                                        )
+                                        return
                                 else:
                                     normal = _get_normal_or_axis_from_entity(orient_ent)
                                 loc_str = "{}, {}, {}".format(pt[0], pt[1], pt[2])
