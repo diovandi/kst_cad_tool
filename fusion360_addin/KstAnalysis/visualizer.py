@@ -9,10 +9,12 @@ import adsk.core
 import adsk.fusion
 
 _KST_GROUP_ID = "KstAnalysis"
-_ARROW_LEN = 1.0  # cm, for constraint direction
-_PIN_HALF_LEN = 0.5
-_LINE_DISPLAY_LEN = 2.0
-_WEAKEST_ARROW_BASE_LEN = 5.0  # cm max length for weakest-motion arrows
+# Marker/arrow lengths in mm (Fusion internal units are cm, converted to mm
+# when we serialize constraints).
+_ARROW_LEN = 10.0  # mm, for constraint direction
+_PIN_HALF_LEN = 5.0  # mm
+_LINE_DISPLAY_LEN = 20.0  # mm
+_WEAKEST_ARROW_BASE_LEN = 50.0  # mm max length for weakest-motion arrows
 
 
 def _point3d(x, y, z):

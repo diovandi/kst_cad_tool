@@ -14,6 +14,7 @@ import json
 import subprocess
 import sys
 import logging
+import uuid
 
 # Ensure add-in and (if not bundled) repo src are on path
 _ADDIN_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,26 +28,41 @@ if not os.path.exists(os.path.join(_ADDIN_DIR, "kst_rating_tool")):
 
 
 def _get_point_from_entity(entity):
-    """Return (x,y,z) from a face, edge, or vertex. Units in cm (Fusion internal)."""
+    """Return (x,y,z) from a face, edge, or vertex.
+
+    Fusion internal length units are centimeters; we convert them to millimeters
+    so the JSON + external analysis use a consistent mm coordinate system.
+    """
+    CM_TO_MM = 10.0
+    def _cm_to_mm(v):
+        return float(v) * CM_TO_MM
     if hasattr(entity, "pointOnFace"):
         p = entity.pointOnFace
-        return (p.x, p.y, p.z)
+        return (_cm_to_mm(p.x), _cm_to_mm(p.y), _cm_to_mm(p.z))
     if hasattr(entity, "geometry"):
         geom = entity.geometry
         # BRepVertex.geometry → Point3D (has x/y/z but no origin or startPoint)
         if hasattr(geom, "x") and hasattr(geom, "y") and hasattr(geom, "z") and not hasattr(geom, "origin"):
-            return (geom.x, geom.y, geom.z)
+            return (_cm_to_mm(geom.x), _cm_to_mm(geom.y), _cm_to_mm(geom.z))
         if hasattr(geom, "origin"):
             o = geom.origin
-            return (o.x, o.y, o.z)
+            return (_cm_to_mm(o.x), _cm_to_mm(o.y), _cm_to_mm(o.z))
         if hasattr(geom, "startPoint"):
             s, e = geom.startPoint, geom.endPoint
-            return ((s.x + e.x) / 2, (s.y + e.y) / 2, (s.z + e.z) / 2)
+            return (
+                _cm_to_mm((s.x + e.x) / 2),
+                _cm_to_mm((s.y + e.y) / 2),
+                _cm_to_mm((s.z + e.z) / 2),
+            )
     if hasattr(entity, "boundingBox"):
         box = entity.boundingBox
         p = box.minPoint
-        return ((p.x + box.maxPoint.x) / 2, (p.y + box.maxPoint.y) / 2, (p.z + box.maxPoint.z) / 2)
-    return (0, 0, 0)
+        return (
+            _cm_to_mm((p.x + box.maxPoint.x) / 2),
+            _cm_to_mm((p.y + box.maxPoint.y) / 2),
+            _cm_to_mm((p.z + box.maxPoint.z) / 2),
+        )
+    return (0.0, 0.0, 0.0)
 
 
 def _get_normal_or_axis_from_entity(entity):
@@ -116,6 +132,7 @@ def _get_plane_properties_from_face(face_ent):
     Falls back to a small default rectangle if geometry details are unavailable.
     """
     try:
+        CM_TO_MM = 10.0
         geom = getattr(face_ent, "geometry", None)
         # Normal as unit vector
         nx, ny, nz = _get_normal_or_axis_from_entity(face_ent)
@@ -164,7 +181,7 @@ def _get_plane_properties_from_face(face_ent):
             # No geometry detail; return small default rectangle
             (ux, uy, uz), (vx, vy, vz) = _compute_orthonormal_basis_from_normal(nx, ny, nz)
             width = height = 1.0
-            prop_str = f"{ux}, {uy}, {uz}, {width}, {vx}, {vy}, {vz}, {height}"
+            prop_str = f"{ux}, {uy}, {uz}, {width * CM_TO_MM}, {vx}, {vy}, {vz}, {height * CM_TO_MM}"
             return 1, prop_str
 
         # Build in-plane basis: use uDirection/vDirection when available, else algebraic basis.
@@ -217,17 +234,17 @@ def _get_plane_properties_from_face(face_ent):
             radius = sum(radii) / len(radii) if radii else min(width, height) / 2.0
             if radius <= 0:
                 radius = 1.0
-            return 2, f"{radius}"
+            return 2, f"{radius * CM_TO_MM}"
 
         # Rectangular plane
-        prop_str = f"{ux}, {uy}, {uz}, {width}, {vx}, {vy}, {vz}, {height}"
+        prop_str = f"{ux}, {uy}, {uz}, {width * CM_TO_MM}, {vx}, {vy}, {vz}, {height * CM_TO_MM}"
         return 1, prop_str
     except Exception:
         # Fallback: small default rectangle aligned with computed normal
         nx, ny, nz = _get_normal_or_axis_from_entity(face_ent)
         (ux, uy, uz), (vx, vy, vz) = _compute_orthonormal_basis_from_normal(nx, ny, nz)
         width = height = 1.0
-        prop_str = f"{ux}, {uy}, {uz}, {width}, {vx}, {vy}, {vz}, {height}"
+        prop_str = f"{ux}, {uy}, {uz}, {width * CM_TO_MM}, {vx}, {vy}, {vz}, {height * CM_TO_MM}"
         return 1, prop_str
 
 
@@ -351,20 +368,36 @@ class AnalysisCommand:
             docs = os.path.expanduser("~/Documents")
         output_dir = os.path.join(docs, "KstAnalysis")
 
-        # Best-effort repo root guess for external script execution
+        # Best-effort script resolution for external analysis execution.
+        # Fusion add-ins are sometimes bundled, so the relative repo layout can differ.
         repo_root_guess = os.path.abspath(os.path.join(_ADDIN_DIR, os.pardir, os.pardir))
-        wizard_script = os.path.join(repo_root_guess, "scripts", "run_wizard_analysis.py")
+        wizard_script_candidates = [
+            os.path.join(repo_root_guess, "scripts", "run_wizard_analysis.py"),
+            os.path.join(os.path.abspath(os.path.join(_ADDIN_DIR, os.pardir)), "scripts", "run_wizard_analysis.py"),
+            os.path.join(
+                os.path.abspath(os.path.join(_ADDIN_DIR, os.pardir, os.pardir, os.pardir)),
+                "scripts",
+                "run_wizard_analysis.py",
+            ),
+        ]
+        wizard_script = next(
+            (p for p in wizard_script_candidates if os.path.isfile(p)),
+            wizard_script_candidates[0],
+        )
 
         # ---- In-command state ----
         state = {
             "constraints": [],  # list[dict]: {cp_name,type,location,orientation}
             "output_dir": output_dir,
             "wizard_script": wizard_script,
+            "wizard_script_candidates": wizard_script_candidates,
         }
 
         # ---- Logging ----
         log_path = os.path.join(output_dir, "fusion_wizard.log")
         logger = logging.getLogger("kst_fusion_wizard")
+        run_id = uuid.uuid4().hex
+        state["run_id"] = run_id
         if not logger.handlers:
             logger.setLevel(logging.DEBUG)
             try:
@@ -378,6 +411,23 @@ class AnalysisCommand:
                 # If logging setup fails, continue silently; Fusion UI is primary feedback channel.
                 pass
 
+        def _step(step_name, event, **fields):
+            """Write a single trace line for a step in this run."""
+            try:
+                # Avoid huge blobs; callers may still pass full_values on purpose.
+                field_parts = []
+                for k, v in fields.items():
+                    if v is None:
+                        continue
+                    field_parts.append(f"{k}={v}")
+                extra = " ".join(field_parts)
+                if extra:
+                    logger.debug("run=%s step=%s event=%s %s", run_id, step_name, event, extra)
+                else:
+                    logger.debug("run=%s step=%s event=%s", run_id, step_name, event)
+            except Exception:
+                pass
+
         # ---- UI: Pickers ----
         cmd_inputs.addTextBoxCommandInput(
             "kst_help",
@@ -387,7 +437,7 @@ class AnalysisCommand:
             True,
         )
 
-        name_in = cmd_inputs.addStringValueInput("kst_cp_name", "CP Name", "CP1")
+        name_in = cmd_inputs.addStringValueInput("kst_cp_name", "CP Name", "C_point1")
 
         type_in = cmd_inputs.addDropDownCommandInput("kst_cp_type", "Type", adsk.core.DropDownStyles.TextListDropDownStyle)
         for t in ("Point", "Pin", "Line", "Plane"):
@@ -460,15 +510,34 @@ class AnalysisCommand:
             for i, r in enumerate(rows, start=1):
                 lines.append(
                     f"{i}. {r.get('cp_name','CP')}  {r.get('type','Point')}  "
-                    f"loc=({r.get('location','')})  orient=({r.get('orientation','')})"
+                    f"loc=({r.get('location','')}) mm  orient=({r.get('orientation','')})"
                 )
             return "\n".join(lines)
 
         def _update_constraints_box():
             constraints_box.text = _format_constraints_text(state["constraints"])
 
-        def _next_cp_name():
-            return f"CP{len(state['constraints']) + 1}"
+        def _is_auto_name(value):
+            v = (value or "").strip()
+            return (
+                v.startswith("CP")
+                or v.startswith("C_point")
+                or v.startswith("C_pin")
+                or v.startswith("C_line")
+                or v.startswith("C_plane")
+            )
+
+        def _next_cp_name(ctype):
+            ctype = (ctype or "Point").strip()
+            prefix_map = {
+                "Point": "C_point",
+                "Pin": "C_pin",
+                "Line": "C_line",
+                "Plane": "C_plane",
+            }
+            prefix = prefix_map.get(ctype, "C_point")
+            type_count = sum(1 for r in state["constraints"] if (r.get("type") or "").strip() == ctype)
+            return f"{prefix}{type_count + 1}"
 
         def _fmt_vec3(vec):
             try:
@@ -480,13 +549,19 @@ class AnalysisCommand:
             try:
                 loc_txt = "(none)"
                 ori_txt = "(none)"
+                loc_missing = True
+                ori_missing = True
                 if loc_sel and loc_sel.selectionCount > 0:
                     loc_ent = loc_sel.selection(0).entity
                     loc_txt = _fmt_vec3(_get_point_from_entity(loc_ent))
+                    loc_missing = False
                 if orient_sel and orient_sel.selectionCount > 0:
                     orient_ent = orient_sel.selection(0).entity
                     ori_txt = _fmt_vec3(_get_normal_or_axis_from_entity(orient_ent))
-                pick_feedback.text = f"loc=({loc_txt})\norient=({ori_txt})"
+                    ori_missing = False
+                pick_feedback.text = f"loc=({loc_txt}) mm\norient=({ori_txt})"
+                if loc_missing and ori_missing:
+                    _step("update_pick_feedback", "SKIP", reason="No location/orientation selected")
             except Exception:
                 try:
                     pick_feedback.text = "(selection info unavailable)"
@@ -496,6 +571,8 @@ class AnalysisCommand:
         def _configure_selection_filters_for_type():
             """Adjust selection filters and visibility based on current constraint type."""
             ctype = type_in.selectedItem.name if type_in.selectedItem else "Point"
+            point_method = orient_method.selectedItem.name if orient_method.selectedItem else "Normal to Plane"
+            _step("configure_selection_filters", "START", ctype=ctype, point_method=point_method)
             try:
                 if hasattr(loc_sel, "clearSelectionFilters"):
                     loc_sel.clearSelectionFilters()
@@ -512,9 +589,22 @@ class AnalysisCommand:
                 if ctype == "Point":
                     # Location: vertices only for precise CPs
                     loc_sel.addSelectionFilter("Vertices")
-                    # Orientation: faces or edges depending on method (we keep both; method decides how to interpret)
-                    orient_sel.addSelectionFilter("Faces")
-                    orient_sel.addSelectionFilter("Edges")
+                    # Orientation depends on method: Normal-to-plane wants a face normal;
+                    # Along-line wants an edge direction.
+                    if point_method == "Normal to Plane":
+                        orient_sel.isVisible = True
+                        orient_sel.addSelectionFilter("Faces")
+                    elif point_method == "Along Line/Axis":
+                        orient_sel.isVisible = True
+                        orient_sel.addSelectionFilter("Edges")
+                    elif point_method == "Two Points":
+                        # Two-point orientation uses a separate modal picker; hide this selection box.
+                        orient_sel.isVisible = False
+                    else:
+                        # Fallback: allow both.
+                        orient_sel.isVisible = True
+                        orient_sel.addSelectionFilter("Faces")
+                        orient_sel.addSelectionFilter("Edges")
                 elif ctype == "Pin":
                     orient_method.isVisible = False
                     # Location: vertex for pin center
@@ -533,7 +623,9 @@ class AnalysisCommand:
                     loc_sel.addSelectionFilter("Faces")
             except Exception:
                 # If filter configuration fails, keep whatever defaults Fusion provides.
+                _step("configure_selection_filters", "FAIL", ctype=ctype, point_method=point_method)
                 pass
+            _step("configure_selection_filters", "SUCCESS", ctype=ctype, point_method=point_method)
 
         def _ensure_output_dir():
             try:
@@ -543,6 +635,7 @@ class AnalysisCommand:
 
         def _write_input_json():
             _ensure_output_dir()
+            _step("serialize_input_json", "START", constraints_count=len(state["constraints"]))
             logger.debug("Writing wizard_input.json to %s", state["output_dir"])
             point_contacts = []
             pins = []
@@ -611,41 +704,176 @@ class AnalysisCommand:
                 with open(in_path, "w") as f:
                     json.dump(data, f, indent=2)
                 logger.info("Wrote wizard_input.json with %d constraints", len(state["constraints"]))
+                _step(
+                    "serialize_input_json",
+                    "SUCCESS",
+                    wizard_input=in_path,
+                    point_contacts=len(point_contacts),
+                    pins=len(pins),
+                    lines=len(lines),
+                    planes=len(planes),
+                )
             except Exception as exc:
                 logger.exception("Failed to write wizard_input.json: %s", exc)
+                _step("serialize_input_json", "FAIL", error=str(exc))
                 raise
             return in_path
 
         def _run_external_analysis(in_path):
+            _step("external_analysis", "START", in_path=in_path, wizard_script=state["wizard_script"])
             if not os.path.isfile(state["wizard_script"]):
-                msg = f"Missing external script: {state['wizard_script']}"
+                tried = "\n".join(state.get("wizard_script_candidates") or [state["wizard_script"]])
+                msg = f"Missing external script: {state['wizard_script']}\nTried:\n{tried}"
                 logger.error(msg)
+                _step("external_analysis", "FAIL", error=msg)
                 raise RuntimeError(msg)
+
             out_path = os.path.join(state["output_dir"], "results_wizard.txt")
-            # Use system python (where numpy is installed)
-            cmdline = ["python", state["wizard_script"], in_path, out_path]
-            logger.info("Running external analysis: %s", " ".join(cmdline))
-            proc = subprocess.run(cmdline, capture_output=True, text=True)
-            if proc.returncode != 0:
-                msg = proc.stderr.strip() or proc.stdout.strip() or f"exit code {proc.returncode}"
-                logger.error("External analysis failed (code %s): %s", proc.returncode, msg)
-                raise RuntimeError(msg)
-            logger.info("External analysis completed successfully, results at %s", out_path)
-            return out_path
+
+            # Try multiple Python executables.
+            # Note: when running inside Fusion, `sys.executable` can be `Fusion360.exe`
+            # (not an actual python interpreter). So we only use it if it looks python-ish.
+            timeout_s = 120
+
+            def _looks_like_python(exec_path):
+                name = os.path.basename(str(exec_path)).lower()
+                return (
+                    name.startswith("python")
+                    or name.endswith("python.exe")
+                    or "python" in name
+                    or name == "py.exe"
+                )
+
+            python_candidates = []
+            # On Windows, `py` is often the most reliable launcher.
+            python_candidates.append("py")
+            python_candidates.extend(["python3", "python"])
+            if _looks_like_python(sys.executable):
+                python_candidates.append(sys.executable)
+
+            last_error = None
+            for py_exec in python_candidates:
+                cmdline = [py_exec, state["wizard_script"], in_path, out_path]
+                logger.info("Running external analysis: %s", " ".join(cmdline))
+                _step("external_analysis_python_attempt", "START", python=py_exec)
+                try:
+                    proc = subprocess.run(
+                        cmdline,
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout_s,
+                    )
+                except FileNotFoundError:
+                    _step("external_analysis_python_attempt", "SKIP", python=py_exec, reason="FileNotFoundError")
+                    continue
+                except subprocess.TimeoutExpired as e:
+                    msg = f"External analysis timed out after {timeout_s}s."
+                    logger.error("%s Cmd=%s", msg, cmdline)
+                    _step("external_analysis_python_attempt", "FAIL", python=py_exec, error=msg)
+                    raise RuntimeError(msg) from e
+
+                if proc.returncode == 0:
+                    # Even if the process returns 0, verify the expected output was produced.
+                    out_exists = os.path.isfile(out_path)
+                    out_size = os.path.getsize(out_path) if out_exists else 0
+                    try:
+                        if out_exists and out_size > 0:
+                            logger.info(
+                                "External analysis completed successfully, wrote %s (python=%s)",
+                                out_path,
+                                py_exec,
+                            )
+                            _step(
+                                "external_analysis_python_attempt",
+                                "SUCCESS",
+                                python=py_exec,
+                                out_path=out_path,
+                                out_size=os.path.getsize(out_path),
+                            )
+                            return out_path
+                    except Exception:
+                        pass
+
+                    last_error = (
+                        f"Subprocess returned 0 but output was missing/empty: {out_path} "
+                        f"(python={py_exec})"
+                    )
+                    logger.error(last_error)
+                    _step(
+                        "external_analysis_python_attempt",
+                        "FAIL",
+                        python=py_exec,
+                        out_path=out_path,
+                        out_exists=out_exists,
+                        out_size=out_size,
+                        error=last_error,
+                    )
+                    continue
+
+                stderr = (proc.stderr or "").strip()
+                stdout = (proc.stdout or "").strip()
+                stderr_len = len(stderr)
+                stdout_len = len(stdout)
+                stderr_preview = stderr[:500]
+                stdout_preview = stdout[:500]
+                msg = stderr or stdout or f"exit code {proc.returncode}"
+                logger.error(
+                    "External analysis failed (code %s) with %s: %s",
+                    proc.returncode,
+                    py_exec,
+                    msg,
+                )
+                _step(
+                    "external_analysis_python_attempt",
+                    "FAIL",
+                    python=py_exec,
+                    returncode=proc.returncode,
+                    error=msg[:2000],
+                    stderr_len=stderr_len,
+                    stdout_len=stdout_len,
+                    stderr_preview=stderr_preview,
+                    stdout_preview=stdout_preview,
+                )
+
+                # If the chosen interpreter doesn't have numpy, try the next one.
+                if "No module named" in msg and "numpy" in msg:
+                    last_error = msg
+                    continue
+
+                # Other failures likely won't be fixed by swapping interpreters.
+                last_error = msg
+                break
+
+            raise RuntimeError(last_error or "External analysis failed unexpectedly.")
 
         def _update_results_box_from_file(path):
+            _step("update_results_box", "START", path=path)
             try:
+                if not os.path.isfile(path):
+                    _step("update_results_box", "FAIL", path=path, error="file missing")
+                    cmd_inputs.itemById("kst_results").text = f"(missing results file: {path})"
+                    return
+                out_size = os.path.getsize(path)
+                _step("update_results_box", "START", path=path, out_size=out_size)
                 with open(path) as f:
                     lines = f.read().strip().splitlines()
                 if len(lines) >= 2:
                     parts = lines[1].split("\t")
                     if len(parts) >= 4:
+                        maybe_error_line = lines[2] if len(lines) >= 3 else ""
                         cmd_inputs.itemById("kst_results").text = (
                             f"WTR={parts[0]}\nMRR={parts[1]}\nMTR={parts[2]}\nTOR={parts[3]}\n\n{path}"
                         )
+                        if maybe_error_line.startswith("ERROR"):
+                            cmd_inputs.itemById("kst_results").text = (
+                                cmd_inputs.itemById("kst_results").text + f"\n\n{maybe_error_line}"
+                            )
+                        _step("update_results_box", "SUCCESS", path=path)
                         return
+                _step("update_results_box", "SKIP", reason="Could not parse results", path=path)
                 cmd_inputs.itemById("kst_results").text = f"(wrote {path}, but could not parse results)"
             except Exception as e:
+                _step("update_results_box", "FAIL", error=str(e), path=path)
                 cmd_inputs.itemById("kst_results").text = f"Failed to read results: {e}"
 
         # ---- Event handlers ----
@@ -667,6 +895,15 @@ class AnalysisCommand:
 
                     # React to type/method changes for dynamic UI behavior.
                     if changed.id in ("kst_cp_type", "kst_orient_method"):
+                        # Type changes may also update the CP name (auto-naming only).
+                        if changed.id == "kst_cp_type":
+                            _configure_selection_filters_for_type()
+                            if _is_auto_name(name_in.value):
+                                new_type = type_in.selectedItem.name if type_in.selectedItem else "Point"
+                                name_in.value = _next_cp_name(new_type)
+                            _update_pick_feedback()
+                            return
+
                         _configure_selection_filters_for_type()
                         _update_pick_feedback()
                         return
@@ -674,7 +911,14 @@ class AnalysisCommand:
                     if changed.id == "kst_add" and getattr(add_action, "value", False):
                         add_action.value = False
                         ctype = type_in.selectedItem.name if type_in.selectedItem else "Point"
-                        cp_name = (name_in.value or "").strip() or _next_cp_name()
+                        cp_name = (name_in.value or "").strip() or _next_cp_name(ctype)
+                        _step(
+                            "ui_add_constraint",
+                            "START",
+                            ctype=ctype,
+                            cp_name=cp_name,
+                            orient_method=orient_method.selectedItem.name if orient_method.selectedItem else None,
+                        )
 
                         # Per-type handling
                         if ctype == "Point":
@@ -682,6 +926,7 @@ class AnalysisCommand:
                             if method == "Two Points":
                                 origin_str, direction_str = _pick_two_vertices_for_line(app)
                                 if not origin_str or not direction_str:
+                                    _step("ui_add_constraint", "SKIP", ctype=ctype, cp_name=cp_name, reason="Two-point orientation cancelled")
                                     ui.messageBox("Two-point orientation cancelled or invalid.")
                                     return
                                 loc_str = origin_str
@@ -691,8 +936,26 @@ class AnalysisCommand:
                                     loc_ent = loc_sel.selection(0).entity
                                     orient_ent = orient_sel.selection(0).entity
                                 except Exception:
+                                    _step("ui_add_constraint", "SKIP", ctype=ctype, cp_name=cp_name, reason="Missing location or orientation selection")
                                     ui.messageBox("Pick both Location and Orientation before adding.")
                                     return
+                                loc_geom = getattr(loc_ent, "geometry", None)
+                                # If Fusion gives you an edge for "Vertex", warn explicitly.
+                                if loc_geom is not None and hasattr(loc_geom, "startPoint") and hasattr(loc_geom, "endPoint"):
+                                    _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Point location picked an edge geometry")
+                                    ui.messageBox("For a Point constraint location, pick a vertex (point), not an edge.")
+                                    return
+                                orient_geom = getattr(orient_ent, "geometry", None)
+                                if method == "Normal to Plane":
+                                    if orient_geom is None or not hasattr(orient_geom, "normal"):
+                                        _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Normal-to-plane missing face normal")
+                                        ui.messageBox("Normal to Plane requires selecting a face (for the face normal).")
+                                        return
+                                elif method == "Along Line/Axis":
+                                    if orient_geom is None or not (hasattr(orient_geom, "startPoint") and hasattr(orient_geom, "endPoint")):
+                                        _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Along-line missing straight edge")
+                                        ui.messageBox("Along Line/Axis requires selecting a straight edge (for direction).")
+                                        return
                                 pt = _get_point_from_entity(loc_ent)
                                 normal = _get_normal_or_axis_from_entity(orient_ent)
                                 loc_str = "{}, {}, {}".format(pt[0], pt[1], pt[2])
@@ -710,7 +973,15 @@ class AnalysisCommand:
                                 loc_ent = loc_sel.selection(0).entity
                                 orient_ent = orient_sel.selection(0).entity
                             except Exception:
+                                _step("ui_add_constraint", "SKIP", ctype=ctype, cp_name=cp_name, reason="Missing pin location or axis selection")
                                 ui.messageBox("For a Pin, pick a vertex (location) and an edge (axis).")
+                                return
+                            orient_geom = getattr(orient_ent, "geometry", None)
+                            geom_type_name = type(orient_geom).__name__.lower() if orient_geom is not None else ""
+                            # For now, accept only edges that Fusion reports as line geometry.
+                            if "line" not in geom_type_name:
+                                _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Pin axis not straight line geometry")
+                                ui.messageBox("For a Pin, pick a straight edge (line geometry) for the axis.")
                                 return
                             pt = _get_point_from_entity(loc_ent)
                             axis = _get_normal_or_axis_from_entity(orient_ent)
@@ -725,21 +996,29 @@ class AnalysisCommand:
                             try:
                                 loc_ent = loc_sel.selection(0).entity
                             except Exception:
+                                _step("ui_add_constraint", "SKIP", ctype=ctype, cp_name=cp_name, reason="Missing line edge selection")
                                 ui.messageBox("For a Line, pick an edge to define the contact.")
                                 return
                             geom = getattr(loc_ent, "geometry", None)
                             if not geom or not hasattr(geom, "startPoint") or not hasattr(geom, "endPoint"):
+                                _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Selected entity invalid edge geometry")
                                 ui.messageBox("Selected entity is not a valid edge for Line constraint.")
                                 return
+                            geom_type_name = type(geom).__name__.lower()
+                            if "line" not in geom_type_name:
+                                _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Selected edge not straight line geometry")
+                                ui.messageBox("Selected edge is not a straight line for Line constraint.")
+                                return
                             s, e = geom.startPoint, geom.endPoint
-                            mx = (s.x + e.x) / 2.0
-                            my = (s.y + e.y) / 2.0
-                            mz = (s.z + e.z) / 2.0
+                            mx = (s.x + e.x) / 2.0 * 10.0
+                            my = (s.y + e.y) / 2.0 * 10.0
+                            mz = (s.z + e.z) / 2.0 * 10.0
                             dx = e.x - s.x
                             dy = e.y - s.y
                             dz = e.z - s.z
                             L = (dx * dx + dy * dy + dz * dz) ** 0.5
                             if L < 1e-10:
+                                _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Line edge too short")
                                 ui.messageBox("Selected edge is too short for Line constraint.")
                                 return
                             nx, ny, nz = dx / L, dy / L, dz / L
@@ -747,12 +1026,13 @@ class AnalysisCommand:
                             orient_str = "{}, {}, {}".format(nx, ny, nz)
                             cn = _get_constraint_normal_for_edge(loc_ent, (nx, ny, nz))
                             cdir_str = "{}, {}, {}".format(cn[0], cn[1], cn[2])
+                            L_mm = L * 10.0
                             row = {
                                 "cp_name": cp_name,
                                 "type": ctype,
                                 "location": loc_str,
                                 "orientation": orient_str,
-                                "line_length": L,
+                                "line_length": L_mm,
                                 "constraint_dir": cdir_str,
                             }
 
@@ -760,6 +1040,7 @@ class AnalysisCommand:
                             try:
                                 loc_ent = loc_sel.selection(0).entity
                             except Exception:
+                                _step("ui_add_constraint", "SKIP", ctype=ctype, cp_name=cp_name, reason="Missing plane face selection")
                                 ui.messageBox("For a Plane, pick a face to define the contact.")
                                 return
                             pt = _get_point_from_entity(loc_ent)
@@ -776,10 +1057,12 @@ class AnalysisCommand:
                                 "plane_prop": plane_prop,
                             }
                         else:
+                            _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Unknown constraint type")
                             ui.messageBox(f"Unknown constraint type: {ctype}")
                             return
 
                         state["constraints"].append(row)
+                        _step("ui_add_constraint", "SUCCESS", ctype=ctype, cp_name=cp_name, constraints_total=len(state["constraints"]), row=row)
                         _update_constraints_box()
 
                         # Visual feedback
@@ -790,7 +1073,7 @@ class AnalysisCommand:
                             pass
 
                         # Prepare next name and clear picks
-                        name_in.value = _next_cp_name()
+                        name_in.value = _next_cp_name(ctype)
                         try:
                             loc_sel.clearSelection()
                             orient_sel.clearSelection()
@@ -801,6 +1084,7 @@ class AnalysisCommand:
                     elif changed.id == "kst_remove_last" and getattr(remove_last_action, "value", False):
                         remove_last_action.value = False
                         if state["constraints"]:
+                            _step("ui_remove_last_constraint", "START", constraints_total=len(state["constraints"]))
                             state["constraints"].pop()
                             _update_constraints_box()
                             try:
@@ -808,11 +1092,14 @@ class AnalysisCommand:
                                 visualizer.draw_constraint_markers(app, state["constraints"])
                             except Exception:
                                 pass
-                            name_in.value = _next_cp_name()
+                            cur_type = type_in.selectedItem.name if type_in.selectedItem else "Point"
+                            name_in.value = _next_cp_name(cur_type)
+                            _step("ui_remove_last_constraint", "SUCCESS", constraints_total=len(state["constraints"]))
                             _update_pick_feedback()
 
                     elif changed.id == "kst_clear_all" and getattr(clear_all_action, "value", False):
                         clear_all_action.value = False
+                        _step("ui_clear_all_constraints", "START", constraints_total=len(state["constraints"]))
                         state["constraints"].clear()
                         _update_constraints_box()
                         try:
@@ -820,10 +1107,13 @@ class AnalysisCommand:
                             visualizer.clear_kst_graphics(app)
                         except Exception:
                             pass
-                        name_in.value = _next_cp_name()
+                        cur_type = type_in.selectedItem.name if type_in.selectedItem else "Point"
+                        name_in.value = _next_cp_name(cur_type)
+                        _step("ui_clear_all_constraints", "SUCCESS")
                         _update_pick_feedback()
                 except Exception as e:
                     try:
+                        _step("ui_input_changed", "FAIL", error=str(e))
                         ui.messageBox(f"KST input change error: {e}")
                     except Exception:
                         pass
@@ -835,12 +1125,58 @@ class AnalysisCommand:
             def notify(self, event_args):
                 try:
                     if not state["constraints"]:
+                        _step("run_analysis", "SKIP", reason="No constraints")
                         ui.messageBox("Add at least one constraint before running analysis.")
                         return
+
+                    # Pre-run summary: let the user verify that constraint picks are correct.
+                    _step("run_analysis", "START", constraints_total=len(state["constraints"]))
+                    preconfirm_success = False
+                    summary_lines = []
+                    for i, r in enumerate(state["constraints"], start=1):
+                        cp_name = r.get("cp_name", "")
+                        ctype = r.get("type", "Point")
+                        loc = r.get("location", "")
+                        ori = r.get("orientation", "")
+                        summary_lines.append(f"{i}. {cp_name} [{ctype}] loc=({loc}) mm  orient=({ori})")
+                    summary_text = (
+                        "KST Analysis inputs (units: mm)\n\n"
+                        + "\n".join(summary_lines)
+                        + "\n\nProceed with analysis?"
+                    )
+                    try:
+                        confirm = ui.messageBox(
+                            summary_text,
+                            "Confirm Constraints",
+                            adsk.core.MessageBoxButtonTypes.OKCancelButtonType,
+                        )
+                        # Prefer enum-based check if available.
+                        if hasattr(adsk.core, "MessageBoxResult"):
+                            if confirm != adsk.core.MessageBoxResult.OK:
+                                _step("run_analysis_preconfirm", "SKIP", reason="User cancelled pre-run")
+                                return
+                            preconfirm_success = True
+                        else:
+                            # Fallback: detect cancel-like text.
+                            if "cancel" in str(confirm).lower():
+                                _step("run_analysis_preconfirm", "SKIP", reason="User cancelled pre-run (fallback detection)")
+                                return
+                            preconfirm_success = True
+                    except Exception:
+                        # If Fusion's messageBox doesn't support OK/Cancel in this environment,
+                        # fall back to an OK-only confirmation.
+                        ui.messageBox(summary_text, "Confirm Constraints")
+                        _step("run_analysis_preconfirm", "SUCCESS", reason="OK-only confirmation fallback")
+
+                    if preconfirm_success:
+                        _step("run_analysis_preconfirm", "SUCCESS", reason="User confirmed pre-run")
+
                     in_path = _write_input_json()
                     out_path = _run_external_analysis(in_path)
                     _update_results_box_from_file(out_path)
+                    _step("run_analysis", "SUCCESS", out_path=out_path)
                 except Exception as e:
+                    _step("run_analysis", "FAIL", error=str(e))
                     ui.messageBox(f"KST analysis failed: {e}")
 
         class _DestroyHandler(adsk.core.CommandEventHandler):
