@@ -41,6 +41,7 @@ def main(argv: list[str]) -> int:
 
     input_path = Path(argv[1]).resolve()
     output_path = Path(argv[2]).resolve()
+    detail_json_path = output_path.with_name(f"{output_path.stem}_detailed.json")
 
     logger = _setup_logger(output_path)
     logger.info("Starting wizard analysis")
@@ -55,6 +56,19 @@ def main(argv: list[str]) -> int:
                 f.write("WTR\tMRR\tMTR\tTOR\n")
                 f.write("0.0\t0.0\t0.0\t0.0\n")
                 f.write(f"ERROR\t{msg}\n")
+            with detail_json_path.open("w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "success": False,
+                        "error": msg,
+                        "rating": {"WTR": 0.0, "MRR": 0.0, "MTR": 0.0, "TOR": 0.0},
+                        "constraints": [],
+                        "mot_all": [],
+                        "Ri": [],
+                    },
+                    f,
+                    indent=2,
+                )
         except Exception:
             logger.exception("Failed to write error output to %s", output_path)
 
@@ -94,6 +108,7 @@ def main(argv: list[str]) -> int:
 
     try:
         cs = ConstraintSet()
+        constraints_manifest: list[dict] = []
         pc = data.get("point_contacts", []) or []
         logger.info("point_contacts: %d", len(pc))
         for idx, row in enumerate(pc, start=1):
@@ -101,6 +116,9 @@ def main(argv: list[str]) -> int:
                 pos = np.array(row[0:3], dtype=float)
                 nrm = np.array(row[3:6], dtype=float)
                 cs.points.append(PointConstraint(pos, nrm))
+                constraints_manifest.append(
+                    {"type": "Point", "location": pos.tolist(), "orientation": nrm.tolist()}
+                )
                 logger.debug("CP%d pos=%s nrm=%s", idx, pos, nrm)
 
         pins = data.get("pins", []) or []
@@ -110,6 +128,9 @@ def main(argv: list[str]) -> int:
                 center = np.array(row[0:3], dtype=float)
                 axis = np.array(row[3:6], dtype=float)
                 cs.pins.append(PinConstraint(center, axis))
+                constraints_manifest.append(
+                    {"type": "Pin", "location": center.tolist(), "orientation": axis.tolist()}
+                )
                 logger.debug("PIN%d center=%s axis=%s", idx, center, axis)
 
         lines = data.get("lines", []) or []
@@ -121,6 +142,9 @@ def main(argv: list[str]) -> int:
                 constraint_dir = np.array(row[6:9], dtype=float)
                 length = float(row[9])
                 cs.lines.append(LineConstraint(midpoint, line_dir, constraint_dir, length))
+                constraints_manifest.append(
+                    {"type": "Line", "location": midpoint.tolist(), "orientation": line_dir.tolist()}
+                )
                 logger.debug(
                     "LINE%d midpoint=%s line_dir=%s constraint_dir=%s length=%s",
                     idx,
@@ -161,6 +185,9 @@ def main(argv: list[str]) -> int:
                     return 1
 
                 cs.planes.append(PlaneConstraint(midpoint, normal, ptype, prop))
+                constraints_manifest.append(
+                    {"type": "Plane", "location": midpoint.tolist(), "orientation": normal.tolist()}
+                )
                 logger.debug(
                     "PLANE%d midpoint=%s normal=%s type=%d prop_size=%d prop=%s",
                     idx,
@@ -192,6 +219,24 @@ def main(argv: list[str]) -> int:
             f.write("WTR\tMRR\tMTR\tTOR\n")
             f.write(
                 "{}\t{}\t{}\t{}\n".format(rating.WTR, rating.MRR, rating.MTR, rating.TOR)
+            )
+
+        with detail_json_path.open("w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "success": True,
+                    "rating": {"WTR": rating.WTR, "MRR": rating.MRR, "MTR": rating.MTR, "TOR": rating.TOR},
+                    # Constraint order matches ConstraintSet.to_matlab_style_arrays:
+                    # points -> pins -> lines -> planes.
+                    "constraints": constraints_manifest,
+                    # mot_all columns are:
+                    # [omu(3), mu(3), rho(3), h(1)] as returned by ScrewMotion.as_array().
+                    "mot_all": detailed.mot_all.tolist(),
+                    # Ri shape is (n_motions, n_constraints).
+                    "Ri": detailed.Ri.tolist(),
+                },
+                f,
+                indent=2,
             )
 
         logger.info(

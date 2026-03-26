@@ -40,27 +40,81 @@ def _get_point_from_entity(entity):
     return (0, 0, 0)
 
 
+def _normalize_vec3(vx, vy, vz):
+    """Return a unit vector or None if too small."""
+    L = (vx * vx + vy * vy + vz * vz) ** 0.5
+    if L > 1e-10:
+        return (vx / L, vy / L, vz / L)
+    return None
+
+
+def _try_get_axis_dir_from_entity(entity):
+    """
+    Return a unit vector along the geometric axis for cylinder/cone/circle/line-like
+    Fusion geometry, or None if it cannot infer an axis direction.
+    """
+    geom = getattr(entity, "geometry", None)
+    if geom is None:
+        return None
+
+    if hasattr(geom, "axis"):
+        a = geom.axis
+        if hasattr(a, "direction"):
+            d = a.direction
+            v = _normalize_vec3(d.x, d.y, d.z)
+            if v is not None:
+                return v
+        if hasattr(a, "x") and hasattr(a, "y") and hasattr(a, "z"):
+            v = _normalize_vec3(a.x, a.y, a.z)
+            if v is not None:
+                return v
+        if hasattr(a, "startPoint") and hasattr(a, "endPoint"):
+            s, e = a.startPoint, a.endPoint
+            v = _normalize_vec3(e.x - s.x, e.y - s.y, e.z - s.z)
+            if v is not None:
+                return v
+
+    if hasattr(geom, "startPoint") and hasattr(geom, "endPoint"):
+        s, e = geom.startPoint, geom.endPoint
+        v = _normalize_vec3(e.x - s.x, e.y - s.y, e.z - s.z)
+        if v is not None:
+            return v
+
+    if hasattr(geom, "direction"):
+        d = geom.direction
+        v = _normalize_vec3(d.x, d.y, d.z)
+        if v is not None:
+            return v
+
+    return None
+
+
 def _get_normal_or_axis_from_entity(entity):
-    """Return (nx,ny,nz) unit vector from a face (normal) or edge (direction)."""
+    """
+    Return a unit vector for a picked entity:
+    - cylindrical/circular geometry -> axis direction
+    - planar faces -> face normal
+    - straight line edges -> edge direction
+    """
+    axis = _try_get_axis_dir_from_entity(entity)
+    if axis is not None:
+        return axis
+
     if hasattr(entity, "geometry"):
         geom = entity.geometry
         if hasattr(geom, "normal"):
             n = geom.normal
-            L = (n.x**2 + n.y**2 + n.z**2) ** 0.5
-            if L > 1e-10:
-                return (n.x / L, n.y / L, n.z / L)
-        if hasattr(geom, "startPoint") and hasattr(geom, "endPoint"):
-            s, e = geom.startPoint, geom.endPoint
-            dx, dy, dz = e.x - s.x, e.y - s.y, e.z - s.z
-            L = (dx*dx + dy*dy + dz*dz) ** 0.5
-            if L > 1e-10:
-                return (dx / L, dy / L, dz / L)
+            v = _normalize_vec3(n.x, n.y, n.z)
+            if v is not None:
+                return v
+
     if hasattr(entity, "pointOnFace") and hasattr(entity, "normal"):
         n = entity.normal
         if n:
-            L = (n.x**2 + n.y**2 + n.z**2) ** 0.5
-            if L > 1e-10:
-                return (n.x / L, n.y / L, n.z / L)
+            v = _normalize_vec3(n.x, n.y, n.z)
+            if v is not None:
+                return v
+
     return (0, 0, 1)
 
 
