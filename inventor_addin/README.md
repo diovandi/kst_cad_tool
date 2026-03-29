@@ -31,13 +31,13 @@ A second ribbon button opens the **Optimization Wizard**:
 - Search space: Line, Discrete, Orient 1D, Orient 2D.
 - Parameters: steps, line origin/direction (for line search).
 - **Generate optimization plan** writes `wizard_optimization.json` (generic format with candidate matrix).
-- **Run optimization** instructs to run MATLAB `run_wizard_optimization.m` with that file.
+- **Run optimization** should call the Python runner `scripts/run_wizard_optimization.py` (preferred) or MATLAB legacy runner if required by your environment.
 - **Load results** reads `results_wizard_optim.txt` (candidate, WTR, MTR, TOR) into the grid.
 
 ## Next steps (integration)
 
 - **Geometry selection:** Implement "Select" button handlers that use Inventor `SelectSet` / `InteractionEvents` to let the user pick a face or point in the model, then fill Location/Orientation from the API (e.g. face normal, point coordinates).
-- **MATLAB integration:** From the wizard, call MATLAB or a compiled executable with the generated input file and display WTR/MTR/TOR results (see main repo docs for MATLAB batch usage).
+- **Backend integration:** From the wizard, call Python (`scripts/run_wizard_analysis.py`, `scripts/run_wizard_optimization.py`) for primary runtime; MATLAB/compiled exe is an optional compatibility path.
 
 ## References
 

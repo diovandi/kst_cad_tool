@@ -10,9 +10,10 @@ The project has two major components:
    - Reciprocal motion computation
    - Resistance calculation and rating metrics (WTR, MRR, MTR, TOR)
 
-2. **CAD integration** (Fusion 360 add-in, Inventor add-in skeleton):
+2. **CAD integration** (Fusion 360 add-in + .NET add-in prototypes):
    - **Fusion 360 add-in** (`fusion360_addin/`): Native command-palette wizard for interactive constraint picking and analysis directly inside Fusion 360. Supports all four constraint types with type-aware selection filters and orientation methods.
-   - **Inventor add-in skeleton** (`inventor_addin/`): C# skeleton for Autodesk Inventor integration.
+   - **Inventor add-in skeleton** (`inventor_addin/`): C# prototype for Autodesk Inventor integration.
+   - **SolidWorks prototype** (`solidworks_addin/`) + shared .NET wizard layer (`shared_cad_ui/`).
 
 ### Development environment
 
@@ -36,6 +37,17 @@ pip install -e .
 ```bash
 pip install -e ".[dev]"
 pytest
+```
+
+### Engineering quality checks
+
+Use these commands before opening a PR:
+
+```bash
+ruff check src tests scripts --select E9,F821,F822,F823
+mypy src/kst_rating_tool
+pytest
+python fusion360_addin/build_bundle.py --verify
 ```
 
 If pytest fails due to an external plugin (e.g. ROS `launch_testing`), run from a clean env or run tests directly:
@@ -99,6 +111,12 @@ The primary CAD integration is the **Fusion 360 add-in** (`fusion360_addin/KstAn
 
 See **[fusion360_addin/README.md](fusion360_addin/README.md)** for setup instructions.
 
+### CAD runtime paths
+
+For a cross-CAD runtime matrix (Fusion repo mode, Fusion bundle mode, Inventor, SolidWorks, wizard demo), see:
+
+- **[docs/CAD_RUNTIME_PATHS.md](docs/CAD_RUNTIME_PATHS.md)**
+
 ### Wizard demo (meeting preview)
 
 A **Python skeleton** of the planned add-in (Analysis + Optimization wizards) runs without Fusion 360 or MATLAB:
@@ -141,5 +159,6 @@ Two tabs: **Analysis Wizard** (constraint table, Select, Analyze → JSON) and *
 - **Python engine:** Primary analysis backend; validated against Octave/MATLAB for **all 21 benchmark cases** (atol=1e-3, rtol=5%). See [docs/PARKED.md](docs/PARKED.md) for validation status.
 - **Fusion 360 add-in:** Supports all four constraint types (Point, Pin, Line, Plane) with type-aware selection filters, orientation method selection for Point, and JSON export for analysis via external Python. See [fusion360_addin/README.md](fusion360_addin/README.md).
 - **Wizard input JSON:** Version 2 format with `point_contacts`, `pins`, `lines`, and `planes` arrays. See [docs/GENERIC_INPUT_FORMAT.md](docs/GENERIC_INPUT_FORMAT.md).
-- **Inventor add-in:** C# skeleton for Autodesk Inventor; see [docs/PROJECT_STATUS_SUMMARY.md](docs/PROJECT_STATUS_SUMMARY.md).
+- **Inventor add-in:** C# prototype for Autodesk Inventor; see [inventor_addin/README.md](inventor_addin/README.md).
+- **SolidWorks/shared UI:** Prototype add-in + shared wizard layer; see [solidworks_addin/README.md](solidworks_addin/README.md) and [shared_cad_ui/README.md](shared_cad_ui/README.md).
 

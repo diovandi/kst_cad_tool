@@ -5,6 +5,16 @@
 
 ---
 
+## Document scope
+
+Use this file for meeting-level status only. For implementation details, use:
+
+- `docs/PROGRESS.md` (developer operational guide)
+- `docs/CAD_RUNTIME_PATHS.md` (cross-CAD runtime architecture)
+- `docs/PARKED.md` (parity and historical validation record)
+
+---
+
 ## 1. MATLAB / Octave / Python Parity
 
 ### 1.1 Current state
@@ -62,18 +72,24 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 - **Project skeleton:** `inventor_addin/` — C# Analysis Wizard and Optimization Wizard, ribbon buttons, generic JSON output.
 - **Wizard demo (Python):** `scripts/wizard_demo.py` — Standalone GUI (tkinter) that mimics the two wizards for meetings. Run: `python scripts/wizard_demo.py`.
 
-### 2.4 Generic input and scripts
+### 2.4 CAD add-in (SolidWorks/shared UI) — Prototype path
+
+- **SolidWorks host:** `solidworks_addin/` (prototype `ISwAddin` integration).
+- **Shared wizard layer:** `shared_cad_ui/` (host-agnostic .NET forms + JSON model).
+- **Execution policy:** prefer Python runners (`scripts/run_wizard_analysis.py`, `scripts/run_wizard_optimization.py`) with MATLAB retained as optional legacy interoperability path.
+
+### 2.5 Generic input and scripts
 
 - **Generic input format:** [GENERIC_INPUT_FORMAT.md](GENERIC_INPUT_FORMAT.md) — JSON for analysis (point_contacts, pins, lines, planes) and optimization (candidate_matrix, modified_constraints).
 - **Example files:** `matlab_script/Input_files/generic_example_analysis.json`, `generic_example_optimization.json`.
 - **MATLAB:** `load_generic_input.m`, `run_wizard_analysis.m`, `run_wizard_optimization.m`; base motion set helpers `get_base_motion_set.m`, `optim_rev_from_candidates.m`.
 
-### 2.5 Optimization logic — Base motion set
+### 2.6 Optimization logic — Base motion set
 
 - **get_base_motion_set.m**, **optim_rev_from_candidates.m** — Generic constraint revision from a candidate matrix; only motion sets involving the modified constraint are recomputed.
 - **run_wizard_optimization.m** — Loads generic optimization JSON, runs baseline + optim_rev_from_candidates, writes results.
 
-### 2.6 MATLAB integration and compiler
+### 2.7 MATLAB integration and compiler
 
 - **MATLAB_INTEGRATION.md** — Calling MATLAB or compiled exe from the add-in.
 - **MATLAB_COMPILER.md** — Compiling the analysis pipeline to a standalone exe.
@@ -88,8 +104,10 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 | Parity (21/21 Python vs Octave) | Result files in repo; `python scripts/compare_octave_python.py all` |
 | Parity status doc | [docs/PARKED.md](PARKED.md) |
 | Fusion 360 add-in (all 4 types) | `fusion360_addin/KstAnalysis/` — run in Fusion 360 |
+| Fusion bundle sync check | `python fusion360_addin/build_bundle.py --verify` |
 | Wizard demo (meeting) | `python scripts/wizard_demo.py` |
 | Inventor add-in skeleton | `inventor_addin/` (build on Windows with VS + Inventor) |
+| SolidWorks + shared wizard prototype | `solidworks_addin/`, `shared_cad_ui/` |
 | Generic input spec (v2) | [docs/GENERIC_INPUT_FORMAT.md](GENERIC_INPUT_FORMAT.md) |
 | Analysis from JSON (Python) | `scripts/run_wizard_analysis.py` — reads v2 JSON, all 4 types |
 | Analysis from JSON (MATLAB) | `matlab_script/Analysis and design tool/run_wizard_analysis.m` |

@@ -12,7 +12,7 @@ This document maps each aspect of the MATLAB “Analysis and design tool” to t
 | Constraints & wrenches | ✓ | — | — |
 | Optimization (revision, reduction, postproc) | ✓ | — | — |
 | Known loading (specmot) | ✓ (analysis + optimization) | — | — |
-| I/O & reporting | ✓ | — | HTML report, table_mot, histogr, optim_postproc_plot |
+| I/O & reporting | ✓ | — | MATLAB `.fig`/`.eps` save behavior differs |
 | Sensitivity analysis | ✓ | — | sens_analysis_pos, sens_analysis_orient |
 | Constraint addition | Stub | — | MATLAB has errors too |
 | Point search / cp_rev_to_wrench | — | — | move_pt_srch; cp_rev via ConstraintSet |
@@ -29,7 +29,7 @@ This document maps each aspect of the MATLAB “Analysis and design tool” to t
 | **input_preproc** | `io_legacy` (normalize) + `ConstraintSet` | Normalization in loader; counts from `ConstraintSet`. |
 | **cp_to_wrench** | `wrench.cp_to_wrench` | ✓ Full: points, pins, lines, planes. |
 | **combo_preproc** | `combination.combo_preproc` | ✓ |
-| **main_loop** | `pipeline.analyze_constraints` / `analyze_constraints_detailed` | ✓ Logic; **only point constraints (rate_cp) used** in loop. |
+| **main_loop** | `pipeline.analyze_constraints` / `analyze_constraints_detailed` | ✓ Logic; rates point/pin/line/plane constraints in both forward and reverse passes. |
 | **rating** | `rating.aggregate_ratings` | ✓ WTR, MRR, MTR, TOR. |
 | **result_open** | `reporting.result_open` | ✓ Opens HTML file and writes header. |
 | **report** | `reporting.write_report` | ✓ Full HTML report (ratings, table_mot, CP table). |
@@ -140,7 +140,7 @@ All constraint types (cp, cpin, clin, cpln) are rated in the Python main loop an
 
 | MATLAB | Python | Notes |
 |--------|--------|--------|
-| Case .m files (cp only) | `io_legacy.load_case_m_file` | ✓ Parses cp matrix; **cp-only**. Pins/lines/planes not loaded from .m. |
+| Case .m files (cp/cpin/clin/cpln) | `io_legacy.load_case_m_file` | ✓ Parses cp and optional cpin/clin/cpln/cpln_prop matrices from MATLAB-style files. |
 | input_menu (21 cases) | `run_python_case.py` case name/number | Same case set (1–21) supported by script. |
 
 ---
@@ -156,6 +156,6 @@ All constraint types (cp, cpin, clin, cpln) are rated in the Python main loop an
 ## Conclusion
 
 - **Replicated:** Core analysis for **all constraint types** (rate_cp, rate_cpin, rate_clin, rate_cpln1, rate_cpln2), wrenches, combo, motion, rating aggregation, revision/reduction/postproc optimization, search-space functions, specmot analysis and **specmot optimization** (rate_specmot, main_specmot_optim), sensitivity analysis (sens_analysis_pos, sens_analysis_orient), HTML-style reporting (result_open/close, write_report, table_mot), histogr, and optim_postproc_plot.
-- **Partially replicated / not replicated:** move_pt_srch (MATLAB has errors; not ported). io_legacy loads **cp-only** from .m files; for pins/lines/planes use ConstraintSet.from_matlab_style_arrays with arrays from elsewhere. optim_main_add is a deliberate stub on both sides.
+- **Partially replicated / not replicated:** move_pt_srch (MATLAB has errors; not ported). `optim_main_add` is a deliberate stub on both sides.
 
 The Python port now replicates the vast majority of the MATLAB "Analysis and design tool" functionality.

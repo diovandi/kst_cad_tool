@@ -270,7 +270,7 @@ def analyze_constraints_detailed(
     total_cp = no_cp + no_cpin + no_clin + no_cpln
 
     mot_hold: List[NDArray[np.float64]] = []
-    mot_map = {}  # tuple(mot_arr) -> index in mot_hold
+    mot_map: dict[tuple[float, ...], int] = {}  # tuple(mot_arr) -> index in mot_hold
     Rcp_pos_rows: List[NDArray[np.float64]] = []
     Rcp_neg_rows: List[NDArray[np.float64]] = []
     Rcpin_rows: List[NDArray[np.float64]] = []
@@ -392,12 +392,15 @@ def analyze_constraints_detailed(
     mot_half_rev = np.hstack([-mot_half[:, :6], mot_half[:, 6:]])
     mot_all = np.vstack([mot_half, mot_half_rev])
     mot_all = np.round(mot_all * 1e4) / 1e4
-    if not combo_proc_indices:
-        combo_proc = np.empty((0, combo.shape[1] + 1), dtype=np.int_)
-    else:
+    if combo_proc_rows_list and combo_proc_rows_list[0].shape[0] == combo.shape[1] + 1:
+        # Parallel path stores [combo_index, combo_cols...] rows directly.
+        combo_proc = np.vstack(combo_proc_rows_list).astype(np.int_, copy=False)
+    elif combo_proc_indices:
         indices_arr = np.array(combo_proc_indices, dtype=np.int_).reshape(-1, 1)
         combos_arr = np.vstack(combo_proc_rows_list)
         combo_proc = np.hstack([indices_arr, combos_arr])
+    else:
+        combo_proc = np.empty((0, combo.shape[1] + 1), dtype=np.int_)
 
     # Match MATLAB unique(mot_all_org, 'rows'): first occurrence per unique motion
     _, uniq_idx = np.unique(mot_all, axis=0, return_index=True)
