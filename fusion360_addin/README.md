@@ -29,6 +29,14 @@ Selection filters are adjusted automatically based on the constraint type so you
 - **Line location**: Edges only
 - **Plane location**: Faces only
 
+### In-dialog workflow helpers
+
+The analysis command includes workflow helpers in the Fusion dialog:
+
+- **Save Config** / **Load Config** for constraint tables (`constraint_config.json` in `~/Documents/KstAnalysis/`)
+- **Invert Direction** toggle when adding or updating rows
+- **Update Selected** with **Edit Index** for per-row editing
+
 ## Run in Fusion 360 (from repo)
 
 1. **Open Fusion 360** and have a design open (or any document).
@@ -81,6 +89,8 @@ When you click **Run Analysis** (or the command's OK button), the add-in writes 
 ```
 
 The external script `scripts/run_wizard_analysis.py` reads this JSON, builds a `ConstraintSet` with all four constraint types, and runs the analysis.
+
+For optimization, `scripts/run_wizard_optimization.py` accepts wizard optimization JSON with candidate matrices for Point/Pin/Line/Plane constraints.
 
 ## Requirements
 

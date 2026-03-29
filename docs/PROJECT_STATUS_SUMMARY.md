@@ -1,6 +1,6 @@
 # KST CAD Tool — Project Status Summary
 
-**Date:** March 2026 (updated)  
+**Date:** March 2026 (updated, latest implementation pass)  
 **Purpose:** Summary of work done so far and current status for supervisor meetings.
 
 ---
@@ -79,6 +79,16 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 - **MATLAB_COMPILER.md** — Compiling the analysis pipeline to a standalone exe.
 - **benchmark_wizard_analysis.m** — Timing for run_wizard_analysis.
 
+### 2.7 Optimization and validation updates (latest)
+
+- **`scripts/run_wizard_optimization.py`** now supports candidate matrices for **Point, Pin, Line, and Plane** constraints (including mixed-type combinations).
+- **Optimization Wizard UI** (`src/kst_rating_tool/ui/optimization_ui.py`) now has functional **Orient 1D** and **Orient 2D** tabs (no longer placeholders).
+- Added integration tests:
+  - `tests/test_optimization_smoke.py` includes pin/mixed/HOC optimization runner coverage.
+  - `tests/test_optimization_ui_plan.py` validates Orient 1D/2D plan generation.
+- CI now runs coverage output with `pytest --cov=kst_rating_tool --cov-report=term-missing`.
+- Circular-cap fixture revalidation confirmed expected metrics; see `docs/FUSION_CIRCULAR_CAP_CASE.md`.
+
 ---
 
 ## 3. What exists today (quick reference)
@@ -99,11 +109,11 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 
 ## 4. Next steps (from plan)
 
-1. **Fusion 360 add-in refinements:** Test all four constraint types with real CAD models; refine Line/Plane property extraction; add constraint editing.
+1. **Fusion 360 in-app validation:** Run and archive manual circular-cap and additional real-model validation outputs from Fusion sessions.
 2. **Constraint modeling guidance:** Define canonical mapping table (pin/point/line/plane to DOF effects); add UX tooltips.
 3. **Example validation cases:** Implement 4-bolt plate, lip edge contact, threaded insert in Fusion to validate modeling.
 4. **Optional — Inventor add-in (Windows):** Build and register; implement geometry selection.
-5. **Python:** No parity work pending; all 21 cases match. Can be used for further tooling or optimization research if desired.
+5. **Future optimization research:** Constraint addition (`optim_main_add`) and surrogate/ML methods remain future work.
 
 ---
 
