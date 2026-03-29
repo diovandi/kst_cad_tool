@@ -29,6 +29,12 @@ Selection filters are adjusted automatically based on the constraint type so you
 - **Line location**: Edges only
 - **Plane location**: Faces only
 
+### Session controls (Analysis wizard)
+
+- **Save Config** / **Load Config** — Persist or restore the constraint table as `constraint_config.json` in the output folder (`~/Documents/KstAnalysis/` by default).
+- **Invert Direction** — When adding a constraint, flip the orientation (and for **Line**, the constraint normal direction).
+- **Update Selected** + **Edit Index** — Re-select geometry for an existing row (1-based index in the table).
+
 ## Run in Fusion 360 (from repo)
 
 1. **Open Fusion 360** and have a design open (or any document).

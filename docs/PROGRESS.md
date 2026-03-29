@@ -1,6 +1,6 @@
 # KST CAD Tool — Progress and Orientation
 
-**Date:** March 17, 2026 (updated)  
+**Date:** March 29, 2026 (updated)  
 **Purpose:** Snapshot of the current state of the project so you can quickly regain context and resume work.
 
 ---
@@ -16,6 +16,8 @@ This repository is a Python-centric, CAD-integrated reimplementation of Leonard 
 - **Wizard demo** (`scripts/wizard_demo.py`): Standalone Python GUI that mimics the planned wizards for meetings/demos.
 
 Today, the **backend math engine is complete and validated** against Octave/MATLAB for the full 21-case benchmark set. The **Fusion 360 add-in supports all four constraint types** (Point, Pin, Line, Plane) with type-aware selection filters and orientation methods.
+
+**Recent work (Mar 2026):** Higher-order constraint (CLIN/CPLN) audit; MATLAB-style **HTML reports** from `run_python_case.py` and `run_wizard_analysis.py`; **`--no-snap N`** on `run_python_case.py` for legacy `.m` branch selection; fixtures `test_inputs/endcap_circular_plane.json`, `cover_rect_plane.json` and `tests/test_hoc_planes_and_reporting.py`; Fusion wizard **save/load** constraint table (`constraint_config.json`), **invert direction**, **update selected row**; **`rate_motset`** in `rating.py` dispatches line/plane contacts for optimization-style paths; CLI **`scripts/run_wizard_optimization.py`** (candidate matrix over point/pin/line/plane — set `constraint_type` in JSON); **Fusion bundle** rebuilt via `python fusion360_addin/build_bundle.py` after source changes. Manual Fusion validation: [FUSION_CIRCULAR_CAP_CASE.md](FUSION_CIRCULAR_CAP_CASE.md).
 
 For a concise project-level summary see also:
 
@@ -88,11 +90,14 @@ Script: `scripts/run_python_case.py`
 python scripts/run_python_case.py 1
 python scripts/run_python_case.py case1a_chair_height
 python scripts/run_python_case.py 1 --full
+# Legacy .m cases with multiple no_snap branches:
+python scripts/run_python_case.py case4a_endcap_tradeoff --no-snap 6 --full
 ```
 
 - **Output (now organized under `results/python/`):**
   - `results/python/results_python_<casename>.txt`
   - `results/python/results_python_<casename>_full.txt` (with `--full`)
+  - `Result - <casename>.html` (MATLAB-style HTML report, same folder as the `.txt` outputs)
 
 The `_full` variant contains:
 
@@ -200,6 +205,19 @@ python scripts/run_python_specmot.py 1
 - **Output**:
   - Console: WTR/MRR/MTR/TOR for the chosen motion.
   - File: `results/python/results_python_specmot_<casename>.txt`
+
+### 3.7 Optimization from generic JSON (wizard candidate matrix)
+
+Script: `scripts/run_wizard_optimization.py`
+
+- **What it does**: Loads `analysis_input` + `optimization.candidate_matrix` from a generic optimization JSON (same shape as `matlab_script/Input_files/generic_example_optimization.json`). For each candidate row, replaces the indicated constraint and runs `analyze_constraints`, then writes a TSV of WTR/MRR/MTR/TOR per candidate.
+- **Usage**:
+
+```bash
+python scripts/run_wizard_optimization.py matlab_script/Input_files/generic_example_optimization.json results/python/wizard_optim.tsv
+```
+
+- **Constraint targeting**: `constraint_index` is 1-based within the constraint **type**. If `constraint_type` is omitted, indices refer to **point contacts only** (backward compatible). For pins, lines, or planes, set e.g. `"constraint_type": "pin"` (or `"line"`, `"plane"`). See [GENERIC_INPUT_FORMAT.md](GENERIC_INPUT_FORMAT.md) for row layouts.
 
 ---
 
@@ -356,20 +374,21 @@ When you come back to this project, a typical “resume work” sequence:
 
 These are the most natural next tasks:
 
-- **Fusion 360 add-in refinements**:
-  - Test all four constraint types end-to-end in Fusion 360 with real CAD models.
+- **Fusion 360 validation and UX**:
+  - Run the manual circular-cap procedure in [FUSION_CIRCULAR_CAP_CASE.md](FUSION_CIRCULAR_CAP_CASE.md) and compare Fusion output to CLI.
+  - After changing `fusion360_addin/KstAnalysis/`, rebuild the installable bundle: `python fusion360_addin/build_bundle.py`, then copy `KstAnalysis.bundle` to `%APPDATA%\\Autodesk\\ApplicationPlugins\\`.
   - Refine Line constraint: allow user to pick a separate constraint direction (perpendicular to line).
   - Refine Plane constraint: auto-detect rectangular vs circular from face geometry; extract dimensions for `plane_prop`.
-  - Add constraint editing (select a row in the table and modify it).
   - Implement example cases in Fusion (4-bolt plate, lip edge contact, threaded insert) to validate constraint modeling.
 - **Constraint modeling guidance**:
   - Define canonical mapping table (pin/point/line/plane to modeling primitives + DOF effects).
   - Add UX tooltips to guide users on when to use each constraint type.
+- **Optimization CLI**:
+  - `run_wizard_optimization.py` evaluates full candidate matrices for point/pin/line/plane; optional: wire HTML/CSV output or integrate with `optim_main_rev` for search-space types beyond discrete lists.
 - **Performance / parallelism**:
   - Add optional multiprocessing to `analyze_constraints_detailed` (per-combination or per-motion evaluation).
   - Benchmark against the existing Octave pipeline.
 - **Smarter optimization** (future work):
-  - Implement a 1D line search (single parameter along a line) on top of the existing black-box rating.
   - Explore surrogate or heuristic methods for high-dimensional searches.
 
 For all of these, the existing scripts (`run_python_case.py`, `compare_octave_python.py`, `deep_comparison.py`) and organized results under `results/python/` should give you **fast feedback** that nothing regresses numerically.

@@ -85,3 +85,79 @@ def test_run_wizard_optimization_script_smoke(tmp_path: Path):
     assert proc.returncode == 0, proc.stderr or proc.stdout
     text = out_txt.read_text(encoding="utf-8")
     assert "candidate\tWTR\tMRR\tMTR\tTOR" in text
+
+
+def test_run_wizard_optimization_pin_candidate(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parent.parent
+    script = repo_root / "scripts" / "run_wizard_optimization.py"
+    if not script.is_file():
+        return
+    payload = {
+        "analysis_input": {
+            "version": 2,
+            "point_contacts": [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0]],
+            "pins": [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0]],
+            "lines": [],
+            "planes": [],
+        },
+        "optimization": {
+            "candidate_matrix": [
+                {
+                    "constraint_type": "pin",
+                    "constraint_index": 1,
+                    "candidates": [
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+                        [0.1, 0.0, 0.0, 0.0, 0.0, 1.0],
+                    ],
+                }
+            ]
+        },
+    }
+    in_json = tmp_path / "opt_pin.json"
+    in_json.write_text(__import__("json").dumps(payload), encoding="utf-8")
+    out_txt = tmp_path / "out_pin.txt"
+    proc = subprocess.run(
+        [sys.executable, str(script), str(in_json), str(out_txt)],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root),
+    )
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    assert "candidate\tWTR\tMRR\tMTR\tTOR" in out_txt.read_text(encoding="utf-8")
+
+
+def test_run_wizard_optimization_plane_candidate(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parent.parent
+    script = repo_root / "scripts" / "run_wizard_optimization.py"
+    fixture = repo_root / "test_inputs" / "endcap_circular_plane.json"
+    if not script.is_file() or not fixture.is_file():
+        return
+    import json
+
+    data = json.loads(fixture.read_text(encoding="utf-8"))
+    plane_row = data["planes"][0]
+    alt = list(plane_row)
+    alt[2] = float(alt[2]) + 0.01  # nudge midpoint z
+    payload = {
+        "analysis_input": data,
+        "optimization": {
+            "candidate_matrix": [
+                {
+                    "constraint_type": "plane",
+                    "constraint_index": 1,
+                    "candidates": [plane_row, alt],
+                }
+            ]
+        },
+    }
+    in_json = tmp_path / "opt_plane.json"
+    in_json.write_text(json.dumps(payload), encoding="utf-8")
+    out_txt = tmp_path / "out_plane.txt"
+    proc = subprocess.run(
+        [sys.executable, str(script), str(in_json), str(out_txt)],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root),
+    )
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    assert "candidate\tWTR\tMRR\tMTR\tTOR" in out_txt.read_text(encoding="utf-8")

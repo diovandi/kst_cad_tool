@@ -1,6 +1,6 @@
 # KST CAD Tool — Project Status Summary
 
-**Date:** March 2026 (updated)  
+**Date:** March 29, 2026 (updated)  
 **Purpose:** Summary of work done so far and current status for supervisor meetings.
 
 ---
@@ -55,6 +55,7 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
   - Writes v2 JSON (`wizard_input.json`) with all four constraint arrays.
 - **External analysis script** (`scripts/run_wizard_analysis.py`): Reads v2 JSON, builds `ConstraintSet` with `PointConstraint`, `PinConstraint`, `LineConstraint`, `PlaneConstraint`, and runs `analyze_constraints_detailed`.
 - **Visualizer** (`visualizer.py`): Draws constraint markers for all four types and weakest screw motions.
+- **Wizard UX (2026):** In the Analysis command, **Save Config** / **Load Config** persist the constraint table to `constraint_config.json` under the output folder; **Invert Direction** flips orientation (and line constraint direction) when adding a row; **Update Selected** + **Edit Index** refresh a row from the current selection. Rebuild the installable bundle after source changes: `python fusion360_addin/build_bundle.py`.
 
 ### 2.3 CAD add-in (Inventor) — Skeleton and design
 
@@ -72,6 +73,8 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 
 - **get_base_motion_set.m**, **optim_rev_from_candidates.m** — Generic constraint revision from a candidate matrix; only motion sets involving the modified constraint are recomputed.
 - **run_wizard_optimization.m** — Loads generic optimization JSON, runs baseline + optim_rev_from_candidates, writes results.
+- **Python:** `scripts/run_wizard_optimization.py` — Reads generic optimization JSON, applies each candidate row to the indicated constraint (point, pin, line, or plane via `constraint_type` + `constraint_index`), writes TSV metrics. See [GENERIC_INPUT_FORMAT.md](GENERIC_INPUT_FORMAT.md).
+- **`rate_motset` (HOC):** Line and plane contacts are included in motion-set rating when present (`rating.py`), supporting optimization-style evaluation on assemblies with CLIN/CPLN.
 
 ### 2.6 MATLAB integration and compiler
 
@@ -91,19 +94,20 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 | Wizard demo (meeting) | `python scripts/wizard_demo.py` |
 | Inventor add-in skeleton | `inventor_addin/` (build on Windows with VS + Inventor) |
 | Generic input spec (v2) | [docs/GENERIC_INPUT_FORMAT.md](GENERIC_INPUT_FORMAT.md) |
-| Analysis from JSON (Python) | `scripts/run_wizard_analysis.py` — reads v2 JSON, all 4 types |
+| Analysis from JSON (Python) | `scripts/run_wizard_analysis.py` — reads v2 JSON, all 4 types; writes HTML report |
 | Analysis from JSON (MATLAB) | `matlab_script/Analysis and design tool/run_wizard_analysis.m` |
-| Optimization from JSON | `matlab_script/Analysis and design tool/run_wizard_optimization.m` |
+| Optimization from JSON (MATLAB) | `matlab_script/Analysis and design tool/run_wizard_optimization.m` |
+| Optimization candidate sweep (Python) | `scripts/run_wizard_optimization.py` — discrete candidate matrix (all four constraint types) |
 
 ---
 
 ## 4. Next steps (from plan)
 
-1. **Fusion 360 add-in refinements:** Test all four constraint types with real CAD models; refine Line/Plane property extraction; add constraint editing.
+1. **Fusion 360 validation:** Run the circular-cap check in [FUSION_CIRCULAR_CAP_CASE.md](FUSION_CIRCULAR_CAP_CASE.md); continue testing Line/Plane on real models; refine property extraction as needed.
 2. **Constraint modeling guidance:** Define canonical mapping table (pin/point/line/plane to DOF effects); add UX tooltips.
 3. **Example validation cases:** Implement 4-bolt plate, lip edge contact, threaded insert in Fusion to validate modeling.
 4. **Optional — Inventor add-in (Windows):** Build and register; implement geometry selection.
-5. **Python:** No parity work pending; all 21 cases match. Can be used for further tooling or optimization research if desired.
+5. **Python:** Engine parity is complete (21/21). Further work: richer optimization CLI (e.g. HTML output), performance tuning, research optimizers.
 
 ---
 
