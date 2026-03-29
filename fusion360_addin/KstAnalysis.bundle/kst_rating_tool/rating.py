@@ -36,13 +36,13 @@ def _matlab_mldivide(A: NDArray[np.float64], b: NDArray[np.float64]) -> NDArray[
     b_flat = np.asarray(b, dtype=np.float64).ravel()
     if m == n:
         try:
-            return np.linalg.solve(A, b_flat)
+            return np.asarray(np.linalg.solve(A, b_flat), dtype=np.float64)
         except np.linalg.LinAlgError:
             pass
     # Non-square or singular square — use LAPACK gelsy (QR with column pivoting,
     # same as MATLAB's mldivide for underdetermined systems).
     x, _, _, _ = scipy.linalg.lstsq(A, b_flat, lapack_driver="gelsy")
-    return x
+    return np.asarray(x, dtype=np.float64)
 
 
 def rate_cp(
@@ -358,7 +358,7 @@ def rate_motset(
     combo_set: (n_mot, 5) constraint indices per motion; mot_half: (n_mot, 10); cp_set: 1-based indices.
     Returns R shape (2*n_mot, len(cp_set)) with Rpos then Rneg.
     """
-    cp, cpin, clin, cpln, _ = constraints.to_matlab_style_arrays()
+    cp, cpin, clin, cpln, cpln_prop = constraints.to_matlab_style_arrays()
     no_cp, no_cpin, no_clin, no_cpln = cp.shape[0], cpin.shape[0], clin.shape[0], cpln.shape[0]
     n_mot = mot_half.shape[0]
     n_cp_set = cp_set.size
@@ -387,6 +387,25 @@ def rate_motset(
             if cp_eval <= no_cp:
                 cp_row = cp[cp_eval - 1, :]
                 rp, rn = rate_cp(mot, pivot_wr, input_wr, cp_row)
+                Rpos[i, j] = rp
+                Rneg[i, j] = rn
+            elif cp_eval <= no_cp + no_cpin:
+                k = cp_eval - no_cp - 1
+                rpin = rate_cpin(mot, pivot_wr, input_wr, cpin[k, :])
+                Rpos[i, j] = rpin
+                Rneg[i, j] = rpin
+            elif cp_eval <= no_cp + no_cpin + no_clin:
+                k = cp_eval - no_cp - no_cpin - 1
+                rp, rn = rate_clin(mot, pivot_wr, input_wr, clin[k, :])
+                Rpos[i, j] = rp
+                Rneg[i, j] = rn
+            elif cp_eval <= no_cp + no_cpin + no_clin + no_cpln:
+                k = cp_eval - no_cp - no_cpin - no_clin - 1
+                ptype = int(cpln[k, 6]) if cpln.shape[1] >= 7 else 1
+                if ptype == 2:
+                    rp, rn = rate_cpln2(mot, pivot_wr, input_wr, cpln[k, :], cpln_prop[k, :])
+                else:
+                    rp, rn = rate_cpln1(mot, pivot_wr, input_wr, cpln[k, :], cpln_prop[k, :])
                 Rpos[i, j] = rp
                 Rneg[i, j] = rn
     return np.vstack([Rpos, Rneg])

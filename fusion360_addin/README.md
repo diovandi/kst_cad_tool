@@ -57,6 +57,12 @@ To install so Fusion loads it from its own add-in folder (no need to point at th
    ```
    This creates `fusion360_addin/KstAnalysis.bundle` with the add-in and a copy of `kst_rating_tool`.
 
+   To validate that bundled Python code is in sync with `src/kst_rating_tool`:
+
+   ```bash
+   python fusion360_addin/build_bundle.py --verify
+   ```
+
 2. Copy the folder **`KstAnalysis.bundle`** into Fusion 360's add-in location:
    - **Windows:** `%APPDATA%\Autodesk\ApplicationPlugins\`
    - So the result is: `%APPDATA%\Autodesk\ApplicationPlugins\KstAnalysis.bundle\`
@@ -86,7 +92,16 @@ The external script `scripts/run_wizard_analysis.py` reads this JSON, builds a `
 
 - Fusion 360 (Windows or Mac).
 - The **kst_rating_tool** package (in `../src` when running from repo, or bundled inside the add-in).
-- A system Python with `numpy` installed (for the external analysis script).
+- A system Python with `numpy` installed (for external analysis and optimization scripts).
+
+## Runtime model
+
+- UI host: Fusion command wizard in `KstAnalysis`.
+- Serialization contract: v2 JSON in `docs/GENERIC_INPUT_FORMAT.md`.
+- Compute backend:
+  - `scripts/run_wizard_analysis.py`
+  - `scripts/run_wizard_optimization.py`
+- In bundle mode, the `kst_rating_tool` copy is loaded from `KstAnalysis.bundle/kst_rating_tool`.
 
 ## Troubleshooting
 

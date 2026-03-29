@@ -20,6 +20,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
+
 # Ensure src is on path for imports
 if __name__ == "__main__":
     repo_root = Path(__file__).resolve().parent.parent
@@ -31,7 +33,6 @@ from kst_rating_tool.reference_data import CASE_NUM_TO_NAME
 
 def mot_row_to_specmot_row(mot_row: "np.ndarray") -> "np.ndarray":
     """Convert one motion row (10 elements: omu, mu, rho, h) to specmot row (7: omega, rho, h)."""
-    import numpy as np
     return np.concatenate([mot_row[0:3], mot_row[6:9], np.array([mot_row[9]], dtype=float)])
 
 
@@ -59,7 +60,6 @@ def main() -> int:
         print(f"Case file not found: {case_path}", file=sys.stderr)
         return 1
 
-    import numpy as np
     from kst_rating_tool import analyze_constraints_detailed, analyze_specified_motions
     from kst_rating_tool.io_legacy import load_case_m_file
 

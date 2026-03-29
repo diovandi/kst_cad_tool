@@ -5,6 +5,16 @@
 
 ---
 
+## 0. Documentation map (read this first)
+
+- `README.md`: onboarding and quick commands.
+- `docs/PROGRESS.md` (this file): developer runbook and practical workflow.
+- `docs/PROJECT_STATUS_SUMMARY.md`: meeting-ready status snapshot.
+- `docs/PARKED.md`: parity archive and historical notes.
+- `docs/CAD_RUNTIME_PATHS.md`: runtime architecture across Fusion/Inventor/SolidWorks.
+
+---
+
 ## 1. Big-picture goal
 
 This repository is a Python-centric, CAD-integrated reimplementation of Leonard Rusli’s kinematic screw theory (KST) assembly rating tool:
@@ -75,6 +85,15 @@ All commands below assume you are in the repo root (`kst_cad_tool/`) with the ed
 ```bash
 conda activate kst_kst_engine   # or your env
 pip install -e .
+```
+
+Quality checks before merging:
+
+```bash
+ruff check src tests scripts --select E9,F821,F822,F823
+mypy src/kst_rating_tool
+pytest
+python fusion360_addin/build_bundle.py --verify
 ```
 
 ### 3.1 Run a single case (Python only)

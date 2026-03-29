@@ -36,13 +36,13 @@ def _matlab_mldivide(A: NDArray[np.float64], b: NDArray[np.float64]) -> NDArray[
     b_flat = np.asarray(b, dtype=np.float64).ravel()
     if m == n:
         try:
-            return np.linalg.solve(A, b_flat)
+            return np.asarray(np.linalg.solve(A, b_flat), dtype=np.float64)
         except np.linalg.LinAlgError:
             pass
     # Non-square or singular square — use LAPACK gelsy (QR with column pivoting,
     # same as MATLAB's mldivide for underdetermined systems).
     x, _, _, _ = scipy.linalg.lstsq(A, b_flat, lapack_driver="gelsy")
-    return x
+    return np.asarray(x, dtype=np.float64)
 
 
 def rate_cp(

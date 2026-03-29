@@ -15,7 +15,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "ruff>=0.6.0",
+  "mypy>=1.11.0",
+]
 optimization = ["scikit-learn>=1.2"]
 
 [build-system]
@@ -33,4 +38,50 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
+addopts = [
+  "--cov=src/kst_rating_tool",
+  "--cov-report=term-missing",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+  "fusion360_addin/KstAnalysis.bundle",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/kst_rating_tool/__init__.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/kst_rating_tool"]
+warn_return_any = false
+warn_unused_configs = true
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = "(^fusion360_addin/KstAnalysis.bundle/)"
+
+[[tool.mypy.overrides]]
+module = "kst_rating_tool.optimization.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "kst_rating_tool.ui.*"
+ignore_errors = true
+
+[tool.coverage.run]
+source = ["src/kst_rating_tool"]
+branch = true
+omit = [
+  "src/kst_rating_tool/ui/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
 
