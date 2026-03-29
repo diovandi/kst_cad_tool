@@ -97,9 +97,19 @@ python scripts/run_python_specmot.py <case_name_or_number> [motion_index]
 
 You can run the original MATLAB test cases in Python (by loading the `.m` case files) and in GNU Octave (no MATLAB license required), then compare WTR, MRR, MTR, TOR. See **[docs/COMPARISON.md](docs/COMPARISON.md)** for:
 
-- **Python**: `python scripts/run_python_case.py <case_name_or_number>` (e.g. `1` or `case1a_chair_height`). Results are written to `results/python/results_python_<case>.txt` (and `_full.txt` with `--full`).
+- **Python**: `python scripts/run_python_case.py <case_name_or_number>` (e.g. `1` or `case1a_chair_height`). Results are written to `results/python/results_python_<case>.txt` (and `_full.txt` with `--full`). A MATLAB-style **`Result - <case>.html`** report is written alongside the text outputs. For legacy `.m` cases with multiple `no_snap` branches, use `--no-snap N` (see `io_legacy.load_case_m_file`).
 - **Octave**: `cd matlab_script && octave --no-gui run_case_batch.m <case_number>`
 - **Compare**: `python scripts/compare_octave_python.py <case_name_or_number>`
+
+### Optimization from generic JSON (Python)
+
+For a **discrete candidate matrix** (same shape as `matlab_script/Input_files/generic_example_optimization.json`), run:
+
+```bash
+python scripts/run_wizard_optimization.py <input_json> [output_tsv]
+```
+
+The runner resolves targets via `type` + `index`, global `constraint_index` (points, then pins, then lines, then planes), and optional Cartesian products across multiple matrix entries. See **[docs/GENERIC_INPUT_FORMAT.md](docs/GENERIC_INPUT_FORMAT.md)**.
 
 ### Fusion 360 add-in
 
@@ -108,7 +118,10 @@ The primary CAD integration is the **Fusion 360 add-in** (`fusion360_addin/KstAn
 - Select constraint type (**Point**, **Pin**, **Line**, or **Plane**)
 - Pick location and orientation directly from the 3D model using type-appropriate selection filters
 - Choose orientation method for Point constraints: **Normal to Plane**, **Two Points**, or **Along Line/Axis**
+- **Save Config** / **Load Config** (writes `constraint_config.json`), **Invert Direction**, and **Update Selected** + **Edit Index** for per-row edits
 - Build a constraint table, then run analysis to get WTR/MRR/MTR/TOR
+
+After changing add-in source, rebuild the bundle for `%APPDATA%\\Autodesk\\ApplicationPlugins\\`: `python fusion360_addin/build_bundle.py`.
 
 See **[fusion360_addin/README.md](fusion360_addin/README.md)** for setup instructions.
 
@@ -160,8 +173,8 @@ Optimization Wizard now includes functional **Line**, **Discrete**, **Orient 1D*
 ### Status
 
 - **Python engine:** Primary analysis backend; validated against Octave/MATLAB for **all 21 benchmark cases** (atol=1e-3, rtol=5%). See [docs/PARKED.md](docs/PARKED.md) for validation status.
-- **Fusion 360 add-in:** Supports all four constraint types (Point, Pin, Line, Plane) with type-aware selection filters, orientation method selection for Point, and JSON export for analysis via external Python. See [fusion360_addin/README.md](fusion360_addin/README.md).
-- **Fusion analysis UX:** Supports save/load constraint config, invert direction, and per-row editing in the Fusion command dialog.
+- **Fusion 360 add-in:** Supports all four constraint types (Point, Pin, Line, Plane) with type-aware selection filters, orientation method selection for Point, save/load/invert/update UX, and JSON export for analysis via external Python. See [fusion360_addin/README.md](fusion360_addin/README.md).
+- **CLI:** `scripts/run_wizard_analysis.py` (analysis + HTML), `scripts/run_wizard_optimization.py` (candidate-matrix sweep).
 - **Wizard input JSON:** Version 2 format with `point_contacts`, `pins`, `lines`, and `planes` arrays. See [docs/GENERIC_INPUT_FORMAT.md](docs/GENERIC_INPUT_FORMAT.md).
 - **Inventor add-in:** C# prototype for Autodesk Inventor; see [inventor_addin/README.md](inventor_addin/README.md).
 - **SolidWorks/shared UI:** Prototype add-in + shared wizard layer; see [solidworks_addin/README.md](solidworks_addin/README.md) and [shared_cad_ui/README.md](shared_cad_ui/README.md).

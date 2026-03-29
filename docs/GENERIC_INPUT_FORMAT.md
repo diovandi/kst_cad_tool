@@ -81,7 +81,7 @@ Numeric codes used in legacy MATLAB `grp_rev_type`: 1=none, 2=line_move, 3=curve
 | `optimization` | object | |
 | `optimization.modified_constraints` | array | Each element: `{ "type": "point"|"pin"|"line"|"plane", "index": 1-based, "search_space": { ... } }` |
 | `optimization.search_space` (per constraint) | object | `"discrete"` → `"candidates": [ [Px,Py,Pz,Nx,Ny,Nz], ... ]`; `"line"` → `"origin", "direction", "num_steps"`; `"orient_1d"` → `"axis", "angle_min", "angle_max", "num_steps"`; etc. |
-| `optimization.candidate_matrix` | array of object | Optional precomputed matrix. Preferred form: `{ "type": "point"|"pin"|"line"|"plane", "index": 1-based, "constraint_index": global_1-based, "candidates": [...] }`. `constraint_index`-only remains supported for backward compatibility. |
+| `optimization.candidate_matrix` | array of object | Optional precomputed matrix. **Preferred:** `{ "type": "point"|"pin"|"line"|"plane", "index": 1-based, "constraint_index": global (optional), "candidates": [...] }`. **Alternate:** `{ "constraint_type": "...", "constraint_index": within-type, "candidates": [...] }`; if `constraint_type` omitted, legacy point-only indexing. See `scripts/run_wizard_optimization.py`. |
 
 The script uses this to:
 

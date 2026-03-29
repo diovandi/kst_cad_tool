@@ -33,9 +33,9 @@ Selection filters are adjusted automatically based on the constraint type so you
 
 The analysis command includes workflow helpers in the Fusion dialog:
 
-- **Save Config** / **Load Config** for constraint tables (`constraint_config.json` in `~/Documents/KstAnalysis/`)
-- **Invert Direction** toggle when adding or updating rows
-- **Update Selected** with **Edit Index** for per-row editing
+- **Save Config** / **Load Config** — Persist or restore the constraint table as `constraint_config.json` under `~/Documents/KstAnalysis/` (or your chosen output folder).
+- **Invert Direction** — Flip orientation when adding or updating rows (for **Line**, also flips the constraint normal direction).
+- **Update Selected** + **Edit Index** — Re-select geometry for an existing row (1-based index in the table).
 
 ## Run in Fusion 360 (from repo)
 

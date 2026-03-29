@@ -1,6 +1,6 @@
 # KST CAD Tool — Project Status Summary
 
-**Date:** March 2026 (updated, latest implementation pass)  
+**Date:** March 29, 2026 (updated; latest implementation pass)  
 **Purpose:** Summary of work done so far and current status for supervisor meetings.
 
 ---
@@ -65,6 +65,7 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
   - Writes v2 JSON (`wizard_input.json`) with all four constraint arrays.
 - **External analysis script** (`scripts/run_wizard_analysis.py`): Reads v2 JSON, builds `ConstraintSet` with `PointConstraint`, `PinConstraint`, `LineConstraint`, `PlaneConstraint`, and runs `analyze_constraints_detailed`.
 - **Visualizer** (`visualizer.py`): Draws constraint markers for all four types and weakest screw motions.
+- **Wizard UX (2026):** In the Analysis command, **Save Config** / **Load Config** persist the constraint table to `constraint_config.json` under the output folder; **Invert Direction** flips orientation (and line constraint direction) when adding a row; **Update Selected** + **Edit Index** refresh a row from the current selection. Rebuild the installable bundle after source changes: `python fusion360_addin/build_bundle.py`.
 
 ### 2.3 CAD add-in (Inventor) — Skeleton and design
 
@@ -88,6 +89,8 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 
 - **get_base_motion_set.m**, **optim_rev_from_candidates.m** — Generic constraint revision from a candidate matrix; only motion sets involving the modified constraint are recomputed.
 - **run_wizard_optimization.m** — Loads generic optimization JSON, runs baseline + optim_rev_from_candidates, writes results.
+- **Python:** `scripts/run_wizard_optimization.py` — Reads generic optimization JSON, applies each candidate row to the indicated constraint (point, pin, line, or plane via `constraint_type` + `constraint_index`), writes TSV metrics. See [GENERIC_INPUT_FORMAT.md](GENERIC_INPUT_FORMAT.md).
+- **`rate_motset` (HOC):** Line and plane contacts are included in motion-set rating when present (`rating.py`), supporting optimization-style evaluation on assemblies with CLIN/CPLN.
 
 ### 2.7 MATLAB integration and compiler
 
@@ -95,7 +98,7 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 - **MATLAB_COMPILER.md** — Compiling the analysis pipeline to a standalone exe.
 - **benchmark_wizard_analysis.m** — Timing for run_wizard_analysis.
 
-### 2.7 Optimization and validation updates (latest)
+### 2.8 Optimization and validation updates (latest)
 
 - **`scripts/run_wizard_optimization.py`** now supports candidate matrices for **Point, Pin, Line, and Plane** constraints (including mixed-type combinations).
 - **Optimization Wizard UI** (`src/kst_rating_tool/ui/optimization_ui.py`) now has functional **Orient 1D** and **Orient 2D** tabs (no longer placeholders).
@@ -119,19 +122,20 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 | Inventor add-in skeleton | `inventor_addin/` (build on Windows with VS + Inventor) |
 | SolidWorks + shared wizard prototype | `solidworks_addin/`, `shared_cad_ui/` |
 | Generic input spec (v2) | [docs/GENERIC_INPUT_FORMAT.md](GENERIC_INPUT_FORMAT.md) |
-| Analysis from JSON (Python) | `scripts/run_wizard_analysis.py` — reads v2 JSON, all 4 types |
+| Analysis from JSON (Python) | `scripts/run_wizard_analysis.py` — reads v2 JSON, all 4 types; writes HTML report |
 | Analysis from JSON (MATLAB) | `matlab_script/Analysis and design tool/run_wizard_analysis.m` |
-| Optimization from JSON | `matlab_script/Analysis and design tool/run_wizard_optimization.m` |
+| Optimization from JSON (MATLAB) | `matlab_script/Analysis and design tool/run_wizard_optimization.m` |
+| Optimization candidate sweep (Python) | `scripts/run_wizard_optimization.py` — discrete candidate matrix (all four constraint types) |
 
 ---
 
 ## 4. Next steps (from plan)
 
-1. **Fusion 360 in-app validation:** Run and archive manual circular-cap and additional real-model validation outputs from Fusion sessions.
+1. **Fusion 360 validation:** Run and archive manual circular-cap and real-model checks ([FUSION_CIRCULAR_CAP_CASE.md](FUSION_CIRCULAR_CAP_CASE.md)); continue testing Line/Plane on real models; refine property extraction as needed.
 2. **Constraint modeling guidance:** Define canonical mapping table (pin/point/line/plane to DOF effects); add UX tooltips.
 3. **Example validation cases:** Implement 4-bolt plate, lip edge contact, threaded insert in Fusion to validate modeling.
 4. **Optional — Inventor add-in (Windows):** Build and register; implement geometry selection.
-5. **Future optimization research:** Constraint addition (`optim_main_add`) and surrogate/ML methods remain future work.
+5. **Python / optimization:** Parity is complete (21/21). Further work: richer optimization CLI, performance tuning, `optim_main_add` / surrogate methods as research allows.
 
 ---
 
