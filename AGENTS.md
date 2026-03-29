@@ -7,15 +7,17 @@ This is a Python library project (no running services, databases, or web servers
 ### Quick reference
 
 - **Install**: `pip install -e ".[dev]"` (editable with test deps)
-- **Tests**: `pytest` (currently 50+ tests across multiple `tests/test_*.py` files)
-- **Run a case**: `python3 scripts/run_python_case.py <case_name_or_number>` (e.g. `1`)
+- **Tests**: `pytest` (50+ tests across multiple `tests/test_*.py` files)
+- **Run a case**: `python3 scripts/run_python_case.py <case_name_or_number>` (e.g. `1`); optional `--no-snap N` for legacy `.m` branches; writes `Result - <case>.html` with text outputs
+- **Wizard optimization sweep**: `python3 scripts/run_wizard_optimization.py <optimization.json> [out.tsv]` — candidate matrix for point/pin/line/plane (`constraint_type` in JSON)
 - **Lint**: No linter is configured in this project
 
 ### Project structure highlights
 
 - `src/kst_rating_tool/` — core Python library (constraints, wrench, motion, rating, optimization).
 - `fusion360_addin/KstAnalysis/` — Fusion 360 add-in (Python). Key file: `commands/analysis_command.py` (native command palette UI with Point/Pin/Line/Plane constraint types).
-- `scripts/run_wizard_analysis.py` — external analysis script invoked by the Fusion add-in; reads v2 JSON with all four constraint types.
+- `scripts/run_wizard_analysis.py` — external analysis script invoked by the Fusion add-in; reads v2 JSON with all four constraint types; writes HTML report.
+- `scripts/run_wizard_optimization.py` — discrete candidate-matrix optimization sweep from generic JSON.
 - `fusion360_addin/KstAnalysis/visualizer.py` — Fusion viewport markers for constraint visualization.
 - `inventor_addin/` — C# Inventor add-in skeleton (Windows only).
 

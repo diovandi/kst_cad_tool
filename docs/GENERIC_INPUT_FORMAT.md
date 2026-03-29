@@ -81,7 +81,7 @@ Numeric codes used in legacy MATLAB `grp_rev_type`: 1=none, 2=line_move, 3=curve
 | `optimization` | object | |
 | `optimization.modified_constraints` | array | Each element: `{ "type": "point"|"pin"|"line"|"plane", "index": 1-based, "search_space": { ... } }` |
 | `optimization.search_space` (per constraint) | object | `"discrete"` → `"candidates": [ [Px,Py,Pz,Nx,Ny,Nz], ... ]`; `"line"` → `"origin", "direction", "num_steps"`; `"orient_1d"` → `"axis", "angle_min", "angle_max", "num_steps"`; etc. |
-| `optimization.candidate_matrix` | array of object | Optional precomputed matrix: `{ "constraint_index": 1, "candidates": [ [6 values], ... ] }` — wizard can output this so the script does not need to discretize |
+| `optimization.candidate_matrix` | array of object | Optional precomputed matrix: `{ "constraint_index": 1, "constraint_type": "point" \| "pin" \| "line" \| "plane", "candidates": [ rows ] }`. If `constraint_type` is omitted, `constraint_index` counts **point contacts only** (backward compatible). Row layout: point/pin — 6 floats; line — 10 floats; plane — 7+ floats (`[px,py,pz,nx,ny,nz,type,...prop]`). See `scripts/run_wizard_optimization.py`. |
 
 The script uses this to:
 
