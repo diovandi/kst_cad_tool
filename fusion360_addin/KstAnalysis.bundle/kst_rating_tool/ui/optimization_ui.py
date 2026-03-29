@@ -4,9 +4,14 @@ Optimization Wizard UI component.
 
 import json
 import os
+import math
 import tkinter as tk
 from tkinter import ttk, messagebox
-from .dialogs import show_location_orientation_dialog
+
+try:
+    from .dialogs import show_location_orientation_dialog  # type: ignore
+except ImportError:
+    from dialogs import show_location_orientation_dialog  # type: ignore
 
 class OptimizationPanel(ttk.Frame):
     def __init__(self, parent, output_dir, available_constraints=None, on_run_optimization=None):
@@ -76,10 +81,45 @@ class OptimizationPanel(ttk.Frame):
 
         orient1_tab = ttk.Frame(self.notebook, padding=4)
         self.notebook.add(orient1_tab, text="Orient 1D")
-        ttk.Label(orient1_tab, text="(Placeholder for orientation 1D search)").pack(anchor="w")
+        ttk.Label(orient1_tab, text="Axis (x,y,z):").grid(row=0, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.orient1_axis_var = tk.StringVar(value="1, 0, 0")
+        ttk.Entry(orient1_tab, textvariable=self.orient1_axis_var, width=22).grid(row=0, column=1, sticky="w", padx=(0, 4))
+        ttk.Label(orient1_tab, text="Angle min (deg):").grid(row=1, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.orient1_min_var = tk.StringVar(value="-30")
+        ttk.Entry(orient1_tab, textvariable=self.orient1_min_var, width=10).grid(row=1, column=1, sticky="w")
+        ttk.Label(orient1_tab, text="Angle max (deg):").grid(row=2, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.orient1_max_var = tk.StringVar(value="30")
+        ttk.Entry(orient1_tab, textvariable=self.orient1_max_var, width=10).grid(row=2, column=1, sticky="w")
+        ttk.Label(orient1_tab, text="Steps:").grid(row=3, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.steps_orient1_var = tk.StringVar(value="5")
+        ttk.Entry(orient1_tab, textvariable=self.steps_orient1_var, width=10).grid(row=3, column=1, sticky="w")
         orient2_tab = ttk.Frame(self.notebook, padding=4)
         self.notebook.add(orient2_tab, text="Orient 2D")
-        ttk.Label(orient2_tab, text="(Placeholder for orientation 2D search)").pack(anchor="w")
+        ttk.Label(orient2_tab, text="Axis 1 (x,y,z):").grid(row=0, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.orient2_axis1_var = tk.StringVar(value="1, 0, 0")
+        ttk.Entry(orient2_tab, textvariable=self.orient2_axis1_var, width=22).grid(row=0, column=1, sticky="w", padx=(0, 4))
+        ttk.Label(orient2_tab, text="Axis 2 (x,y,z):").grid(row=1, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.orient2_axis2_var = tk.StringVar(value="0, 1, 0")
+        ttk.Entry(orient2_tab, textvariable=self.orient2_axis2_var, width=22).grid(row=1, column=1, sticky="w", padx=(0, 4))
+        ttk.Label(orient2_tab, text="Angle1 min/max (deg):").grid(row=2, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.orient2_a1_min_var = tk.StringVar(value="-20")
+        self.orient2_a1_max_var = tk.StringVar(value="20")
+        a1_row = ttk.Frame(orient2_tab)
+        a1_row.grid(row=2, column=1, sticky="w")
+        ttk.Entry(a1_row, textvariable=self.orient2_a1_min_var, width=8).pack(side="left")
+        ttk.Label(a1_row, text=" / ").pack(side="left")
+        ttk.Entry(a1_row, textvariable=self.orient2_a1_max_var, width=8).pack(side="left")
+        ttk.Label(orient2_tab, text="Angle2 min/max (deg):").grid(row=3, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.orient2_a2_min_var = tk.StringVar(value="-20")
+        self.orient2_a2_max_var = tk.StringVar(value="20")
+        a2_row = ttk.Frame(orient2_tab)
+        a2_row.grid(row=3, column=1, sticky="w")
+        ttk.Entry(a2_row, textvariable=self.orient2_a2_min_var, width=8).pack(side="left")
+        ttk.Label(a2_row, text=" / ").pack(side="left")
+        ttk.Entry(a2_row, textvariable=self.orient2_a2_max_var, width=8).pack(side="left")
+        ttk.Label(orient2_tab, text="Steps (each axis):").grid(row=4, column=0, sticky="w", padx=(0, 4), pady=2)
+        self.steps_orient2_var = tk.StringVar(value="3")
+        ttk.Entry(orient2_tab, textvariable=self.steps_orient2_var, width=10).grid(row=4, column=1, sticky="w")
 
         ttk.Button(form, text="Add Optimization Parameter", command=self._add_optim_param).pack(anchor="w", pady=(8, 0))
 
@@ -158,10 +198,27 @@ class OptimizationPanel(ttk.Frame):
             except ValueError:
                 st = 2
         else:
-            space = ["Orient 1D", "Orient 2D"][tab - 2]
-            orig = ""
-            direc = ""
-            st = 0
+            if tab == 2:
+                space = "Orient 1D"
+                orig = self.orient1_axis_var.get() or ""
+                direc = "{},{}".format(self.orient1_min_var.get() or "-30", self.orient1_max_var.get() or "30")
+                try:
+                    st = max(1, min(100, int(self.steps_orient1_var.get())))
+                except ValueError:
+                    st = 5
+            else:
+                space = "Orient 2D"
+                orig = "{};{}".format(self.orient2_axis1_var.get() or "", self.orient2_axis2_var.get() or "")
+                direc = "{},{};{},{}".format(
+                    self.orient2_a1_min_var.get() or "-20",
+                    self.orient2_a1_max_var.get() or "20",
+                    self.orient2_a2_min_var.get() or "-20",
+                    self.orient2_a2_max_var.get() or "20",
+                )
+                try:
+                    st = max(1, min(50, int(self.steps_orient2_var.get())))
+                except ValueError:
+                    st = 3
         self.param_tree.insert("", "end", values=(cp, space, orig, direc, st))
 
     def _remove_param_selected(self):
@@ -194,12 +251,94 @@ class OptimizationPanel(ttk.Frame):
 
         modified = []
         candidate_matrix = []
+        n_point = len(analysis_input.get("point_contacts", []) or [])
+        n_pin = len(analysis_input.get("pins", []) or [])
+        n_line = len(analysis_input.get("lines", []) or [])
+        n_plane = len(analysis_input.get("planes", []) or [])
+
+        def _parse_vec3(text, default=None):
+            default = default or [0.0, 0.0, 1.0]
+            try:
+                vals = [float(x.strip()) for x in str(text).replace(",", " ").split()[:3]]
+                if len(vals) == 3:
+                    return vals
+            except Exception:
+                pass
+            return list(default)
+
+        def _norm(v):
+            m = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+            if m <= 1e-12:
+                return [0.0, 0.0, 1.0]
+            return [v[0] / m, v[1] / m, v[2] / m]
+
+        def _rotate(vec, axis, angle_deg):
+            axis_u = _norm(axis)
+            x, y, z = vec
+            ux, uy, uz = axis_u
+            th = math.radians(angle_deg)
+            c = math.cos(th)
+            s = math.sin(th)
+            dot = ux * x + uy * y + uz * z
+            return [
+                x * c + (uy * z - uz * y) * s + ux * dot * (1 - c),
+                y * c + (uz * x - ux * z) * s + uy * dot * (1 - c),
+                z * c + (ux * y - uy * x) * s + uz * dot * (1 - c),
+            ]
+
+        def _target_from_cp_name(cp_name):
+            name = str(cp_name or "").strip()
+            if name in self.available_constraints:
+                global_idx = self.available_constraints.index(name) + 1
+            else:
+                global_idx = 1
+            digits = "".join(ch for ch in name if ch.isdigit())
+            typed_idx = int(digits) if digits else 1
+            lower = name.lower()
+            if "pin" in lower:
+                ctype = "pin"
+            elif "line" in lower:
+                ctype = "line"
+            elif "plane" in lower:
+                ctype = "plane"
+            else:
+                ctype = "point"
+
+            if ctype == "point":
+                local_idx = typed_idx if 1 <= typed_idx <= max(1, n_point) else min(global_idx, max(1, n_point))
+                global_from_local = local_idx
+            elif ctype == "pin":
+                local_idx = typed_idx if 1 <= typed_idx <= max(1, n_pin) else 1
+                global_from_local = n_point + local_idx
+            elif ctype == "line":
+                local_idx = typed_idx if 1 <= typed_idx <= max(1, n_line) else 1
+                global_from_local = n_point + n_pin + local_idx
+            else:
+                local_idx = typed_idx if 1 <= typed_idx <= max(1, n_plane) else 1
+                global_from_local = n_point + n_pin + n_line + local_idx
+
+            if 1 <= global_idx <= (n_point + n_pin + n_line + n_plane):
+                return ctype, local_idx, global_idx
+            return ctype, local_idx, global_from_local
+
+        def _base_row(ctype, idx):
+            if ctype == "point" and 1 <= idx <= n_point:
+                return list(analysis_input["point_contacts"][idx - 1])
+            if ctype == "pin" and 1 <= idx <= n_pin:
+                return list(analysis_input["pins"][idx - 1])
+            if ctype == "line" and 1 <= idx <= n_line:
+                return list(analysis_input["lines"][idx - 1])
+            if ctype == "plane" and 1 <= idx <= n_plane:
+                return list(analysis_input["planes"][idx - 1])
+            if ctype in ("point", "pin"):
+                return [0, 0, 4, 0, 0, -1]
+            if ctype == "line":
+                return [0, 0, 4, 1, 0, 0, 0, 0, 1, 1]
+            return [0, 0, 0, 0, 0, 1, 1, 1]
+
         for r in rows:
             cp_name = r.get("cp_name") or "CP1"
-            try:
-                idx = self.available_constraints.index(cp_name) + 1
-            except (ValueError, AttributeError):
-                idx = 1
+            ctype, idx, global_idx = _target_from_cp_name(cp_name)
             space = (r.get("search_space") or "Line").strip()
             try:
                 steps = int(r.get("steps") or 5)
@@ -212,15 +351,20 @@ class OptimizationPanel(ttk.Frame):
                     d = [float(x.strip()) for x in (r.get("direction") or "0,0,1").replace(",", " ").split()[:3]]
                 except ValueError:
                     o, d = [0, 0, 4], [0, 0, 1]
-                n = (d[0]**2 + d[1]**2 + d[2]**2) ** 0.5
-                if n > 1e-10:
-                    d = [d[0]/n, d[1]/n, d[2]/n]
+                d = _norm(d)
+                base = _base_row(ctype, idx)
                 candidates = []
                 for k in range(steps + 1):
                     t = k / steps
-                    candidates.append([o[0] + t*d[0], o[1] + t*d[1], o[2] + t*d[2], 0, 0, -1])
-                modified.append({"type": "point", "index": idx, "search_space": {"type": "line", "num_steps": steps}})
-                candidate_matrix.append({"constraint_index": idx, "candidates": candidates})
+                    pos = [o[0] + t * d[0], o[1] + t * d[1], o[2] + t * d[2]]
+                    if ctype in ("point", "pin"):
+                        candidates.append(pos + list(base[3:6]))
+                    elif ctype == "line":
+                        candidates.append(pos + list(base[3:10]))
+                    else:
+                        candidates.append(pos + list(base[3:]))
+                modified.append({"type": ctype, "index": idx, "search_space": {"type": "line", "num_steps": steps}})
+                candidate_matrix.append({"type": ctype, "index": idx, "constraint_index": global_idx, "candidates": candidates})
             elif space == "Discrete":
                 pos_text = (r.get("origin_positions") or "").replace(";", "\n")
                 positions = []
@@ -231,18 +375,100 @@ class OptimizationPanel(ttk.Frame):
                     try:
                         vals = [float(x.strip()) for x in line.replace(",", " ").split()[:3]]
                         if len(vals) == 3:
-                            positions.append(vals + [0, 0, -1])
+                            positions.append(vals)
                     except ValueError:
                         pass
                 if not positions:
-                    positions = [[0, 0, 4, 0, 0, -1], [0, 0, 5, 0, 0, -1]]
-                modified.append({"type": "point", "index": idx, "search_space": {"type": "discrete", "num_steps": len(positions)}})
-                candidate_matrix.append({"constraint_index": idx, "candidates": positions})
+                    positions = [[0, 0, 4], [0, 0, 5]]
+                base = _base_row(ctype, idx)
+                candidates = []
+                for pos in positions:
+                    if ctype in ("point", "pin"):
+                        candidates.append(pos + list(base[3:6]))
+                    elif ctype == "line":
+                        candidates.append(pos + list(base[3:10]))
+                    else:
+                        candidates.append(pos + list(base[3:]))
+                modified.append({"type": ctype, "index": idx, "search_space": {"type": "discrete", "num_steps": len(candidates)}})
+                candidate_matrix.append({"type": ctype, "index": idx, "constraint_index": global_idx, "candidates": candidates})
+            elif space == "Orient 1D":
+                axis = _parse_vec3(r.get("origin_positions") or "1,0,0", [1.0, 0.0, 0.0])
+                angle_txt = str(r.get("direction") or "-30,30").replace(";", ",")
+                try:
+                    a_vals = [float(x.strip()) for x in angle_txt.split(",") if x.strip()]
+                    a_min, a_max = (a_vals[0], a_vals[1]) if len(a_vals) >= 2 else (-30.0, 30.0)
+                except Exception:
+                    a_min, a_max = -30.0, 30.0
+                base = _base_row(ctype, idx)
+                if ctype in ("point", "pin"):
+                    base_ori = list(base[3:6])
+                elif ctype == "line":
+                    base_ori = list(base[3:6])
+                else:
+                    base_ori = list(base[3:6])
+                candidates = []
+                for k in range(steps + 1):
+                    t = 0.0 if steps == 0 else (k / steps)
+                    ang = a_min + (a_max - a_min) * t
+                    new_ori = _norm(_rotate(base_ori, axis, ang))
+                    if ctype in ("point", "pin"):
+                        candidates.append(list(base[0:3]) + new_ori)
+                    elif ctype == "line":
+                        candidates.append(list(base[0:3]) + new_ori + list(base[6:10]))
+                    else:
+                        candidates.append(list(base[0:3]) + new_ori + list(base[6:]))
+                modified.append({"type": ctype, "index": idx, "search_space": {"type": "orient_1d", "num_steps": steps}})
+                candidate_matrix.append({"type": ctype, "index": idx, "constraint_index": global_idx, "candidates": candidates})
+            elif space == "Orient 2D":
+                axis_txt = str(r.get("origin_positions") or "1,0,0;0,1,0")
+                axis_parts = axis_txt.split(";")
+                axis1 = _parse_vec3(axis_parts[0] if axis_parts else "1,0,0", [1.0, 0.0, 0.0])
+                axis2 = _parse_vec3(axis_parts[1] if len(axis_parts) > 1 else "0,1,0", [0.0, 1.0, 0.0])
+                range_txt = str(r.get("direction") or "-20,20;-20,20")
+                range_parts = range_txt.split(";")
+                try:
+                    p1 = [float(x.strip()) for x in range_parts[0].split(",") if x.strip()]
+                    a1_min, a1_max = (p1[0], p1[1]) if len(p1) >= 2 else (-20.0, 20.0)
+                except Exception:
+                    a1_min, a1_max = -20.0, 20.0
+                try:
+                    p2 = [float(x.strip()) for x in (range_parts[1] if len(range_parts) > 1 else "-20,20").split(",") if x.strip()]
+                    a2_min, a2_max = (p2[0], p2[1]) if len(p2) >= 2 else (-20.0, 20.0)
+                except Exception:
+                    a2_min, a2_max = -20.0, 20.0
+                base = _base_row(ctype, idx)
+                base_ori = list(base[3:6])
+                candidates = []
+                for i in range(steps + 1):
+                    t1 = 0.0 if steps == 0 else (i / steps)
+                    a1 = a1_min + (a1_max - a1_min) * t1
+                    for j in range(steps + 1):
+                        t2 = 0.0 if steps == 0 else (j / steps)
+                        a2 = a2_min + (a2_max - a2_min) * t2
+                        v = _rotate(base_ori, axis1, a1)
+                        v = _norm(_rotate(v, axis2, a2))
+                        if ctype in ("point", "pin"):
+                            candidates.append(list(base[0:3]) + v)
+                        elif ctype == "line":
+                            candidates.append(list(base[0:3]) + v + list(base[6:10]))
+                        else:
+                            candidates.append(list(base[0:3]) + v + list(base[6:]))
+                modified.append({"type": ctype, "index": idx, "search_space": {"type": "orient_2d", "num_steps": steps}})
+                candidate_matrix.append({"type": ctype, "index": idx, "constraint_index": global_idx, "candidates": candidates})
             else:
-                modified.append({"type": "point", "index": idx, "search_space": {"type": "line", "num_steps": steps}})
+                modified.append({"type": ctype, "index": idx, "search_space": {"type": "line", "num_steps": steps}})
                 o, d = [0, 0, 4], [0, 0, 1]
-                candidates = [[o[0] + k/steps*d[0], o[1] + k/steps*d[1], o[2] + k/steps*d[2], 0, 0, -1] for k in range(steps + 1)]
-                candidate_matrix.append({"constraint_index": idx, "candidates": candidates})
+                base = _base_row(ctype, idx)
+                candidates = []
+                for k in range(steps + 1):
+                    pos = [o[0] + k / steps * d[0], o[1] + k / steps * d[1], o[2] + k / steps * d[2]]
+                    if ctype in ("point", "pin"):
+                        candidates.append(pos + list(base[3:6]))
+                    elif ctype == "line":
+                        candidates.append(pos + list(base[3:10]))
+                    else:
+                        candidates.append(pos + list(base[3:]))
+                candidate_matrix.append({"type": ctype, "index": idx, "constraint_index": global_idx, "candidates": candidates})
 
         optim = {
             "version": 1,

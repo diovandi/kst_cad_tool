@@ -35,7 +35,7 @@ pip install -e .
 
 ```bash
 pip install -e ".[dev]"
-pytest
+pytest --cov=kst_rating_tool --cov-report=term-missing
 ```
 
 If pytest fails due to an external plugin (e.g. ROS `launch_testing`), run from a clean env or run tests directly:
@@ -59,6 +59,7 @@ The optimization algorithms from the MATLAB codebase are ported under `kst_ratin
 - **Constraint reduction** (`optim_main_red`): Try removing `no_red` constraints at a time; returns WTR/MRR/MTR/TOR and percent change per removal combination.
 - **Post-processing** (`optim_postproc`): Find optimum indices from optimization result arrays.
 - **Constraint addition** (`optim_main_add`): Stub only; the MATLAB version is preliminary and contains errors.
+- **Wizard optimization runner** (`scripts/run_wizard_optimization.py`): supports candidate matrices for all four constraint types (Point, Pin, Line, Plane), including mixed-type runs.
 
 Search-space helpers: `move_lin_srch`, `move_pln_srch`, `move_curvlin_srch`, `orient1d_srch`, `orient2d_srch`, `line_orient1d_srch`, `resize_lin_srch`, `resize_rectpln_srch`, `resize_circpln_srch`.
 
@@ -109,6 +110,8 @@ python scripts/wizard_demo.py
 
 Two tabs: **Analysis Wizard** (constraint table, Select, Analyze → JSON) and **Optimization Wizard** (constraint selection, search space, generate plan, load results). See **[docs/PROJECT_STATUS_SUMMARY.md](docs/PROJECT_STATUS_SUMMARY.md)** for project status.
 
+Optimization Wizard now includes functional **Line**, **Discrete**, **Orient 1D**, and **Orient 2D** parameter tabs for generating optimization candidate plans.
+
 ### Windows Quick Start
 
 1. Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html) for Windows.
@@ -140,6 +143,7 @@ Two tabs: **Analysis Wizard** (constraint table, Select, Analyze → JSON) and *
 
 - **Python engine:** Primary analysis backend; validated against Octave/MATLAB for **all 21 benchmark cases** (atol=1e-3, rtol=5%). See [docs/PARKED.md](docs/PARKED.md) for validation status.
 - **Fusion 360 add-in:** Supports all four constraint types (Point, Pin, Line, Plane) with type-aware selection filters, orientation method selection for Point, and JSON export for analysis via external Python. See [fusion360_addin/README.md](fusion360_addin/README.md).
+- **Fusion analysis UX:** Supports save/load constraint config, invert direction, and per-row editing in the Fusion command dialog.
 - **Wizard input JSON:** Version 2 format with `point_contacts`, `pins`, `lines`, and `planes` arrays. See [docs/GENERIC_INPUT_FORMAT.md](docs/GENERIC_INPUT_FORMAT.md).
 - **Inventor add-in:** C# skeleton for Autodesk Inventor; see [docs/PROJECT_STATUS_SUMMARY.md](docs/PROJECT_STATUS_SUMMARY.md).
 
