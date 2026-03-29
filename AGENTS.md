@@ -7,7 +7,7 @@ This is a Python library project (no running services, databases, or web servers
 ### Quick reference
 
 - **Install**: `pip install -e ".[dev]"` (editable with test deps)
-- **Tests**: `pytest` (9 tests in `tests/test_basic.py`)
+- **Tests**: `pytest` (currently 50+ tests across multiple `tests/test_*.py` files)
 - **Run a case**: `python3 scripts/run_python_case.py <case_name_or_number>` (e.g. `1`)
 - **Lint**: No linter is configured in this project
 

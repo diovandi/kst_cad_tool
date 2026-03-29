@@ -98,6 +98,27 @@ def main():
     notebook.add(analysis_tab, text="Analysis Wizard")
 
     def run_matlab_optim_wrapper(input_path, on_done_callback):
+        py_runner = os.path.join(_REPO_ROOT, "scripts", "run_wizard_optimization.py")
+        out_path = os.path.join(OUTPUT_DIR, "results_wizard_optim.txt")
+        if os.path.isfile(py_runner):
+            def run_py():
+                try:
+                    proc = subprocess.run(
+                        [sys.executable, py_runner, input_path, out_path],
+                        capture_output=True,
+                        text=True,
+                        timeout=600,
+                    )
+                    if proc.returncode == 0:
+                        on_done_callback(True, "Python optimization finished successfully.")
+                    else:
+                        err = (proc.stderr or proc.stdout or "").strip() or f"Exit code {proc.returncode}"
+                        on_done_callback(False, f"Python optimization failed:\n{err[:500]}")
+                except Exception as e:
+                    on_done_callback(False, str(e))
+            threading.Thread(target=run_py, daemon=True).start()
+            return
+
         abs_path = os.path.abspath(input_path).replace("\\", "/").replace("'", "''")
         matlab_call = f"run_wizard_optimization('{abs_path}')"
         run_matlab_headless(matlab_call, MATLAB_TOOL_DIR, on_done_callback)
