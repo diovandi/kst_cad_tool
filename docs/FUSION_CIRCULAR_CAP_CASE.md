@@ -63,3 +63,22 @@ python scripts/run_wizard_analysis.py results/python/fusion_circular_cap_wizard_
 - Fusion and CLI metrics agree within tolerance used elsewhere in the project (atol `1e-3`, rtol `5%`).
 - No empty `pins`/`lines`/`planes` in generated JSON when those constraints were added.
 - HTML report renders all expected sections.
+
+## Latest validation result
+
+CLI re-validation was run from the fixture JSON and matches the expected metrics:
+
+```bash
+python scripts/run_wizard_analysis.py test_inputs/endcap_circular_plane.json results/python/fusion_circular_cap_validation.tsv
+```
+
+Observed:
+
+- WTR = 1.0
+- MRR = 1.3333333333333333
+- MTR = 1.6272000000000002
+- TOR = 1.2204000000000002
+
+Output file:
+
+- `results/python/fusion_circular_cap_validation.tsv`

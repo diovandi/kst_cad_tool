@@ -1,6 +1,6 @@
 # KST CAD Tool — Progress and Orientation
 
-**Date:** March 17, 2026 (updated)  
+**Date:** March 29, 2026 (updated)  
 **Purpose:** Snapshot of the current state of the project so you can quickly regain context and resume work.
 
 ---
@@ -26,6 +26,14 @@ This repository is a Python-centric, CAD-integrated reimplementation of Leonard 
 - **Wizard demo** (`scripts/wizard_demo.py`): Standalone Python GUI that mimics the planned wizards for meetings/demos.
 
 Today, the **backend math engine is complete and validated** against Octave/MATLAB for the full 21-case benchmark set. The **Fusion 360 add-in supports all four constraint types** (Point, Pin, Line, Plane) with type-aware selection filters and orientation methods.
+
+Recent implementation updates in this pass:
+
+- `scripts/run_wizard_optimization.py` now supports Point/Pin/Line/Plane candidate matrices and mixed-type combinations.
+- `src/kst_rating_tool/ui/optimization_ui.py` now implements Orient 1D and Orient 2D plan generation.
+- Added optimization integration tests (`tests/test_optimization_smoke.py`, `tests/test_optimization_ui_plan.py`).
+- CI now reports coverage (`pytest --cov=kst_rating_tool --cov-report=term-missing`).
+- Circular-cap fixture was revalidated via CLI (`results/python/fusion_circular_cap_validation.tsv`).
 
 For a concise project-level summary see also:
 
@@ -377,18 +385,14 @@ These are the most natural next tasks:
 
 - **Fusion 360 add-in refinements**:
   - Test all four constraint types end-to-end in Fusion 360 with real CAD models.
-  - Refine Line constraint: allow user to pick a separate constraint direction (perpendicular to line).
-  - Refine Plane constraint: auto-detect rectangular vs circular from face geometry; extract dimensions for `plane_prop`.
-  - Add constraint editing (select a row in the table and modify it).
+  - Archive and compare in-app Fusion outputs against CLI for circular-cap and additional validation models.
   - Implement example cases in Fusion (4-bolt plate, lip edge contact, threaded insert) to validate constraint modeling.
 - **Constraint modeling guidance**:
   - Define canonical mapping table (pin/point/line/plane to modeling primitives + DOF effects).
   - Add UX tooltips to guide users on when to use each constraint type.
-- **Performance / parallelism**:
-  - Add optional multiprocessing to `analyze_constraints_detailed` (per-combination or per-motion evaluation).
-  - Benchmark against the existing Octave pipeline.
 - **Smarter optimization** (future work):
-  - Implement a 1D line search (single parameter along a line) on top of the existing black-box rating.
+  - Extend wizard optimization flows to additional search-space families (resize / line-orient) as needed.
+  - Evaluate `optim_main_add` (currently stub) only after thesis-critical flows are complete.
   - Explore surrogate or heuristic methods for high-dimensional searches.
 
 For all of these, the existing scripts (`run_python_case.py`, `compare_octave_python.py`, `deep_comparison.py`) and organized results under `results/python/` should give you **fast feedback** that nothing regresses numerically.
