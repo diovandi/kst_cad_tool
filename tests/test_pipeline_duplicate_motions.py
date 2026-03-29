@@ -81,7 +81,7 @@ def test_analyze_constraints_duplicate_detection(mock_pipeline_dependencies):
     ]
 
     # Run analysis
-    results = analyze_constraints(cs, n_workers=1)
+    results = analyze_constraints(cs)
 
     # We expect `analyze_constraints` to call `_rate_motion_all_constraints` for each UNIQUE motion.
     # Motion A: Unique -> Processed

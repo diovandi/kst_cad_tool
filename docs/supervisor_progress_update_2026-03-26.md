@@ -1,30 +1,36 @@
 # Supervisor Progress Update (2026-03-26)
 
 ## Summary
-Implemented a set of Fusion 360 “KST Analysis Wizard” improvements to make the add-in more reliable and easier to debug end-to-end (constraint picking -> JSON -> external analysis -> UI results).
+Completed the key follow-ups from the Mar 26 supervisor meeting for analysis correctness and reporting, and improved Fusion wizard reliability for end-to-end usage.
 
 ## What’s done
-- Improved wizard execution reliability:
-  - More robust external script path resolution.
-  - Safer subprocess execution (multiple Python candidates + timeout).
-  - Added a pre-run confirmation step that lists all chosen constraints.
-- Standardized length units at the Fusion extraction boundary:
-  - Converted Fusion internal cm coordinates to mm before writing `wizard_input.json`.
-  - Updated viewport visualization marker scales to match mm.
-- Improved constraint usability:
-  - Type-aware auto-naming: `C_point1`, `C_pin1`, `C_line1`, `C_plane1`.
-  - Stronger selection validation (e.g., straight edges for `Line`/`Pin`, orientation-method mismatch checks).
-- Added comprehensive run-scoped debugging:
-  - Added `run_id` + `START/SUCCESS/SKIP/FAIL` step logging throughout the Fusion command.
-  - Enhanced subprocess/result parsing logging (including output existence + file size checks).
-  - Updated the external `scripts/run_wizard_analysis.py` runner so it always writes `results_wizard.txt` on failure (includes an `ERROR` line).
+- Verified and validated higher-order constraints (no placeholder math):
+  - Audited `rate_clin`, `rate_cpln1`, and `rate_cpln2` against MATLAB line-by-line.
+  - Confirmed Python CLIN/CPLN pipeline dispatch and wrench construction are correct.
+- Enabled MATLAB-style HTML report generation in Python workflows:
+  - `scripts/run_python_case.py` now writes `Result - <case>.html`.
+  - `scripts/run_wizard_analysis.py` now writes `Result - <input>.html`.
+- Added no-snap branch support for legacy MATLAB case parsing:
+  - `load_case_m_file(..., no_snap_value=N)` now selects requested branch.
+  - `run_python_case.py` supports `--no-snap N`.
+- Added fixtures and regression coverage for HOC + reporting:
+  - `test_inputs/endcap_circular_plane.json`
+  - `test_inputs/cover_rect_plane.json`
+  - `tests/test_hoc_planes_and_reporting.py`
+- Validated representative cases:
+  - `case4a_endcap_tradeoff --no-snap 6` matches repo MATLAB HTML metrics.
+  - `case3a_cover_leverage` matches thesis reference metrics.
 
-## Current debugging finding
-- When the wizard input contains only `point_contacts` + one `plane` (with `pins` and `lines` empty), the solver returns `WTR/MRR/MTR/TOR = 0.0`.
-- This is not an “output missing” issue anymore; the updated logs make it clear what constraint arrays were actually serialized into `wizard_input.json`.
+## Point + plane issue status
+- Previous observation: some Fusion runs with point contacts + one plane yielded `WTR/MRR/MTR/TOR = 0.0`.
+- Current conclusion: this is **not** a solver bug in the Python engine.
+  - CLI validation with equivalent constraints (including circular plane case) produces non-zero expected ratings.
+  - Zero outputs are consistent with either incomplete/incorrect serialized constraints from the Fusion side or an under-constrained setup.
+- Action: treat this as Fusion input/selection validation and case-definition quality, not rating-core correctness.
 
 ## Next steps
-- In Fusion: verify that `Pin` and `Line` constraints are being successfully added/serialized (so `pins` and `lines` are non-empty in `wizard_input.json`).
-- Use the new logs to quickly pinpoint any cases where constraint rows are skipped during `Add Constraint` or dropped during JSON serialization.
-- Once constraint sets are complete, proceed with the end-to-end comparison test workflow.
+- Run the manual Fusion circular-cap validation case and compare Fusion output to CLI:
+  - See `docs/FUSION_CIRCULAR_CAP_CASE.md`.
+- Continue Fusion UX improvements (save/load config, invert direction, per-row editing).
+- Complete Python optimization parity work (`rate_motset` HOC support and wizard optimization runner).
 

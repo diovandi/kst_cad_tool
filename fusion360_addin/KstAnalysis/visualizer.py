@@ -36,11 +36,40 @@ def _parse_xyz(s):
     return (out[0], out[1], out[2])
 
 
+def _parse_floats(s):
+    if not s or not isinstance(s, str):
+        return []
+    vals = []
+    for p in s.replace(",", " ").split():
+        try:
+            vals.append(float(p.strip()))
+        except Exception:
+            continue
+    return vals
+
+
 def _norm(u):
     n = math.sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2])
     if n < 1e-12:
         return (0.0, 0.0, 1.0)
     return (u[0] / n, u[1] / n, u[2] / n)
+
+
+def _orthonormal_basis(n):
+    nx, ny, nz = _norm(n)
+    if abs(nx) < 0.9:
+        ax, ay, az = 1.0, 0.0, 0.0
+    else:
+        ax, ay, az = 0.0, 1.0, 0.0
+    ux = ny * az - nz * ay
+    uy = nz * ax - nx * az
+    uz = nx * ay - ny * ax
+    ux, uy, uz = _norm((ux, uy, uz))
+    vx = ny * uz - nz * uy
+    vy = nz * ux - nx * uz
+    vz = nx * uy - ny * ux
+    vx, vy, vz = _norm((vx, vy, vz))
+    return (ux, uy, uz), (vx, vy, vz)
 
 
 def clear_kst_graphics(app):
@@ -149,8 +178,17 @@ def draw_constraint_markers(app, constraint_list):
                 )
                 points.add(p1)
                 points.add(p2)
+                cdir = _norm(_parse_xyz(c.get("constraint_dir") or "0,0,1"))
+                p3 = _point3d(x, y, z)
+                p4 = _point3d(
+                    x + cdir[0] * _ARROW_LEN,
+                    y + cdir[1] * _ARROW_LEN,
+                    z + cdir[2] * _ARROW_LEN,
+                )
+                points.add(p3)
+                points.add(p4)
             elif ctype == "Plane":
-                # Visualize plane with a short arrow along its normal.
+                # Draw normal arrow.
                 p1 = _point3d(x, y, z)
                 p2 = _point3d(
                     x + dx * _ARROW_LEN,
@@ -159,6 +197,36 @@ def draw_constraint_markers(app, constraint_list):
                 )
                 points.add(p1)
                 points.add(p2)
+                ptype = int(c.get("plane_type", 1))
+                prop = _parse_floats(c.get("plane_prop", ""))
+                if ptype == 1 and len(prop) >= 8:
+                    u = _norm((prop[0], prop[1], prop[2]))
+                    v = _norm((prop[4], prop[5], prop[6]))
+                    hw = float(prop[3]) * 0.5
+                    hh = float(prop[7]) * 0.5
+                    c1 = _point3d(x + hw * u[0] + hh * v[0], y + hw * u[1] + hh * v[1], z + hw * u[2] + hh * v[2])
+                    c2 = _point3d(x + hw * u[0] - hh * v[0], y + hw * u[1] - hh * v[1], z + hw * u[2] - hh * v[2])
+                    c3 = _point3d(x - hw * u[0] - hh * v[0], y - hw * u[1] - hh * v[1], z - hw * u[2] - hh * v[2])
+                    c4 = _point3d(x - hw * u[0] + hh * v[0], y - hw * u[1] + hh * v[1], z - hw * u[2] + hh * v[2])
+                    points.add(c1); points.add(c2)
+                    points.add(c2); points.add(c3)
+                    points.add(c3); points.add(c4)
+                    points.add(c4); points.add(c1)
+                elif ptype == 2 and len(prop) >= 1:
+                    radius = max(float(prop[0]), 1e-6)
+                    u, v = _orthonormal_basis((dx, dy, dz))
+                    seg = 24
+                    prev = None
+                    for i in range(seg + 1):
+                        t = (2.0 * math.pi * i) / seg
+                        px = x + radius * (math.cos(t) * u[0] + math.sin(t) * v[0])
+                        py = y + radius * (math.cos(t) * u[1] + math.sin(t) * v[1])
+                        pz = z + radius * (math.cos(t) * u[2] + math.sin(t) * v[2])
+                        cur = _point3d(px, py, pz)
+                        if prev is not None:
+                            points.add(prev)
+                            points.add(cur)
+                        prev = cur
         if points.count >= 2:
             group.addLines(points)
     except Exception:

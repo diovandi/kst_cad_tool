@@ -73,7 +73,10 @@ When you click **Run Analysis** (or the command's OK button), the add-in writes 
   "point_contacts": [[x, y, z, nx, ny, nz]],
   "pins":           [[cx, cy, cz, ax, ay, az]],
   "lines":          [[mx, my, mz, lx, ly, lz, nx, ny, nz, length]],
-  "planes":         [[px, py, pz, nx, ny, nz, type]]
+  "planes":         [
+    [px, py, pz, nx, ny, nz, 1, ux, uy, uz, width, vx, vy, vz, height],
+    [px, py, pz, nx, ny, nz, 2, radius]
+  ]
 }
 ```
 

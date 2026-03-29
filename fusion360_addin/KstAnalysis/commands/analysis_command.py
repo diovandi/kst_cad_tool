@@ -362,29 +362,6 @@ def _pick_two_vertices_for_line(app):
         return (None, None)
 
 
-def _selections_to_constraints(selection_input):
-    """Convert Fusion selection list to list of (location_str, orientation_str)."""
-    constraints = []
-    if not selection_input or selection_input.selectionCount == 0:
-        return constraints
-    count = selection_input.selectionCount
-    # Pairs: (location_entity, orientation_entity)
-    for i in range(0, count - 1, 2):
-        loc_ent = selection_input.selection(i).entity
-        orient_ent = selection_input.selection(i + 1).entity
-        pt = _get_point_from_entity(loc_ent)
-        normal = _get_normal_or_axis_from_entity(orient_ent)
-        loc_str = "{}, {}, {}".format(pt[0], pt[1], pt[2])
-        orient_str = "{}, {}, {}".format(normal[0], normal[1], normal[2])
-        constraints.append((loc_str, orient_str))
-    if count % 2 == 1:
-        # Odd: use last entity as location only, orientation 0,0,1
-        loc_ent = selection_input.selection(count - 1).entity
-        pt = _get_point_from_entity(loc_ent)
-        constraints.append(("{}, {}, {}".format(pt[0], pt[1], pt[2]), "0, 0, 1"))
-    return constraints
-
-
 class AnalysisCommand:
     _handlers = []
 
@@ -536,8 +513,13 @@ class AnalysisCommand:
 
         # Use BoolValue inputs as "action buttons" (Fusion renders them reliably without icon resources).
         add_action = cmd_inputs.addBoolValueInput("kst_add", "Add Constraint", False, "", False)
+        update_action = cmd_inputs.addBoolValueInput("kst_update", "Update Selected", False, "", False)
         remove_last_action = cmd_inputs.addBoolValueInput("kst_remove_last", "Remove Last", False, "", False)
         clear_all_action = cmd_inputs.addBoolValueInput("kst_clear_all", "Clear All", False, "", False)
+        save_cfg_action = cmd_inputs.addBoolValueInput("kst_save_cfg", "Save Config", False, "", False)
+        load_cfg_action = cmd_inputs.addBoolValueInput("kst_load_cfg", "Load Config", False, "", False)
+        invert_dir = cmd_inputs.addBoolValueInput("kst_invert_dir", "Invert Direction", True, "", False)
+        edit_index_in = cmd_inputs.addStringValueInput("kst_edit_index", "Edit Index", "1")
 
         pick_feedback = cmd_inputs.addTextBoxCommandInput(
             "kst_pick_feedback",
@@ -581,6 +563,33 @@ class AnalysisCommand:
         def _update_constraints_box():
             constraints_box.text = _format_constraints_text(state["constraints"])
 
+        def _config_path():
+            return os.path.join(state["output_dir"], "constraint_config.json")
+
+        def _save_constraints_config():
+            _ensure_output_dir()
+            path = _config_path()
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"version": 1, "constraints": state["constraints"]}, f, indent=2)
+            return path
+
+        def _load_constraints_config():
+            path = _config_path()
+            with open(path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            rows = payload.get("constraints", [])
+            if not isinstance(rows, list):
+                raise RuntimeError("Invalid constraint config format.")
+            state["constraints"] = rows
+            _update_constraints_box()
+            try:
+                import visualizer
+                visualizer.draw_constraint_markers(app, state["constraints"])
+                visualizer.clear_kst_weakest_constraint_arrows(app)
+            except Exception:
+                pass
+            return path
+
         def _is_auto_name(value):
             v = (value or "").strip()
             return (
@@ -608,6 +617,29 @@ class AnalysisCommand:
                 return "{}, {}, {}".format(vec[0], vec[1], vec[2])
             except Exception:
                 return "0, 0, 0"
+
+        def _parse_vec3(text):
+            try:
+                vals = [float(x.strip()) for x in str(text).replace(",", " ").split()[:3]]
+                if len(vals) != 3:
+                    return [0.0, 0.0, 1.0]
+                return vals
+            except Exception:
+                return [0.0, 0.0, 1.0]
+
+        def _vec3_to_str(v):
+            return "{}, {}, {}".format(float(v[0]), float(v[1]), float(v[2]))
+
+        def _apply_invert_to_row(row):
+            if not row or not getattr(invert_dir, "value", False):
+                return row
+            out = dict(row)
+            ori = _parse_vec3(out.get("orientation", "0, 0, 1"))
+            out["orientation"] = _vec3_to_str([-ori[0], -ori[1], -ori[2]])
+            if (out.get("type") or "").strip() == "Line":
+                cdir = _parse_vec3(out.get("constraint_dir", "0, 0, 1"))
+                out["constraint_dir"] = _vec3_to_str([-cdir[0], -cdir[1], -cdir[2]])
+            return out
 
         def _update_pick_feedback():
             try:
@@ -1143,6 +1175,7 @@ class AnalysisCommand:
                             ui.messageBox(f"Unknown constraint type: {ctype}")
                             return
 
+                        row = _apply_invert_to_row(row)
                         state["constraints"].append(row)
                         _step("ui_add_constraint", "SUCCESS", ctype=ctype, cp_name=cp_name, constraints_total=len(state["constraints"]), row=row)
                         _update_constraints_box()
@@ -1163,6 +1196,102 @@ class AnalysisCommand:
                         except Exception:
                             pass
                         _update_pick_feedback()
+
+                    elif changed.id == "kst_update" and getattr(update_action, "value", False):
+                        update_action.value = False
+                        if not state["constraints"]:
+                            ui.messageBox("No constraints to update.")
+                            return
+                        try:
+                            idx = int((edit_index_in.value or "1").strip()) - 1
+                        except Exception:
+                            ui.messageBox("Edit Index must be an integer.")
+                            return
+                        if idx < 0 or idx >= len(state["constraints"]):
+                            ui.messageBox(f"Edit Index must be between 1 and {len(state['constraints'])}.")
+                            return
+                        existing = dict(state["constraints"][idx])
+                        ctype = type_in.selectedItem.name if type_in.selectedItem else existing.get("type", "Point")
+                        cp_name = (name_in.value or "").strip() or existing.get("cp_name", _next_cp_name(ctype))
+                        row = dict(existing)
+                        row["cp_name"] = cp_name
+                        row["type"] = ctype
+                        try:
+                            if ctype in ("Point", "Pin"):
+                                if loc_sel and loc_sel.selectionCount > 0:
+                                    pt = _get_point_from_entity(loc_sel.selection(0).entity)
+                                    row["location"] = _fmt_vec3(pt)
+                                if ctype == "Point" and orient_method.selectedItem and orient_method.selectedItem.name == "Two Points":
+                                    origin_str, direction_str = _pick_two_vertices_for_line(app)
+                                    if origin_str and direction_str:
+                                        row["location"] = origin_str
+                                        row["orientation"] = direction_str
+                                elif orient_sel and orient_sel.selectionCount > 0:
+                                    orient_ent = orient_sel.selection(0).entity
+                                    if ctype == "Pin":
+                                        axis = _try_get_axis_dir_from_entity(orient_ent)
+                                        if axis is not None:
+                                            row["orientation"] = _fmt_vec3(axis)
+                                    else:
+                                        row["orientation"] = _fmt_vec3(_get_normal_or_axis_from_entity(orient_ent))
+                            elif ctype == "Line":
+                                if loc_sel and loc_sel.selectionCount > 0:
+                                    loc_ent = loc_sel.selection(0).entity
+                                    geom = getattr(loc_ent, "geometry", None)
+                                    if geom and hasattr(geom, "startPoint") and hasattr(geom, "endPoint"):
+                                        s, e = geom.startPoint, geom.endPoint
+                                        mx = (s.x + e.x) / 2.0 * 10.0
+                                        my = (s.y + e.y) / 2.0 * 10.0
+                                        mz = (s.z + e.z) / 2.0 * 10.0
+                                        dx = e.x - s.x
+                                        dy = e.y - s.y
+                                        dz = e.z - s.z
+                                        L = (dx * dx + dy * dy + dz * dz) ** 0.5
+                                        if L > 1e-10:
+                                            nx, ny, nz = dx / L, dy / L, dz / L
+                                            row["location"] = "{}, {}, {}".format(mx, my, mz)
+                                            row["orientation"] = "{}, {}, {}".format(nx, ny, nz)
+                                            cn = _get_constraint_normal_for_edge(loc_ent, (nx, ny, nz))
+                                            row["constraint_dir"] = "{}, {}, {}".format(cn[0], cn[1], cn[2])
+                                            row["line_length"] = L * 10.0
+                            elif ctype == "Plane":
+                                if loc_sel and loc_sel.selectionCount > 0:
+                                    loc_ent = loc_sel.selection(0).entity
+                                    pt = _get_point_from_entity(loc_ent)
+                                    normal = _get_normal_or_axis_from_entity(loc_ent)
+                                    plane_type, plane_prop = _get_plane_properties_from_face(loc_ent)
+                                    row["location"] = _fmt_vec3(pt)
+                                    row["orientation"] = _fmt_vec3(normal)
+                                    row["plane_type"] = plane_type
+                                    row["plane_prop"] = plane_prop
+                        except Exception:
+                            pass
+                        row = _apply_invert_to_row(row)
+                        state["constraints"][idx] = row
+                        _update_constraints_box()
+                        try:
+                            import visualizer
+                            visualizer.draw_constraint_markers(app, state["constraints"])
+                            visualizer.clear_kst_weakest_constraint_arrows(app)
+                        except Exception:
+                            pass
+                        _update_pick_feedback()
+
+                    elif changed.id == "kst_save_cfg" and getattr(save_cfg_action, "value", False):
+                        save_cfg_action.value = False
+                        try:
+                            path = _save_constraints_config()
+                            ui.messageBox(f"Saved config:\n{path}")
+                        except Exception as e:
+                            ui.messageBox(f"Failed to save config: {e}")
+
+                    elif changed.id == "kst_load_cfg" and getattr(load_cfg_action, "value", False):
+                        load_cfg_action.value = False
+                        try:
+                            path = _load_constraints_config()
+                            ui.messageBox(f"Loaded config:\n{path}")
+                        except Exception as e:
+                            ui.messageBox(f"Failed to load config: {e}")
 
                     elif changed.id == "kst_run_analysis" and getattr(run_analysis_action, "value", False):
                         # Momentary button behavior
