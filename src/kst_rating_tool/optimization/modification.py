@@ -51,6 +51,7 @@ def optimize_modification(
     method: Literal["diffevo"] = "diffevo",
     max_eval: int = 500,
     seed: int | None = None,
+    polish: bool = True,
 ) -> ModificationResult:
     """Maximize a rating metric over a parameterized constraint set.
 
@@ -66,9 +67,14 @@ def optimize_modification(
     method
         Currently only 'diffevo' (differential evolution).
     max_eval
-        Maximum number of objective evaluations.
+        Hard cap on the number of objective evaluations.  The DE population
+        size and iteration count are derived so that the total stays within
+        this budget.
     seed
         Random seed for reproducibility.
+    polish
+        If True (default), refine the best DE result with L-BFGS-B.
+        Disable for expensive objectives to avoid many extra evaluations.
 
     Returns
     -------
@@ -76,26 +82,36 @@ def optimize_modification(
         Best x, resulting ConstraintSet, ratings, and optional history.
     """
     if bounds is None:
-        # Default: 1D [-1, 1]; can be overridden by caller for multi-D
         bounds = [(-1.0, 1.0)]
     dim = len(bounds)
     history: list[tuple[NDArray[np.float64], RatingResults]] = []
 
+    eval_count = 0
+
     def obj(x: NDArray[np.float64]) -> float:
+        nonlocal eval_count
+        eval_count += 1
         constraints = parameterization(x)
         results = analyze_constraints(constraints)
         history.append((x.copy(), results))
-        # Minimize negative metric
         return -_objective_value(results, objective)
 
     rng = np.random.default_rng(seed)
+
+    # scipy popsize is a *multiplier* on len(x): actual pop = popsize * dim.
+    # Choose the multiplier so actual population fits within max_eval and
+    # leaves room for at least 2 generations.
+    pop_mult = max(2, min(15, max_eval // (dim * 3)))
+    actual_pop = pop_mult * dim
+    maxiter = max(1, (max_eval - actual_pop) // actual_pop)
+
     result = differential_evolution(
         obj,
         bounds,
-        maxiter=max(1, max_eval // (dim * 10)),
-        popsize=min(15, max(5, 5 * dim)),
+        maxiter=maxiter,
+        popsize=pop_mult,
         seed=rng,
-        polish=True,
+        polish=polish,
         atol=1e-6,
         tol=1e-6,
         updating="deferred",
