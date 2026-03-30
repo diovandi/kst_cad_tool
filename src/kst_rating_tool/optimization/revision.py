@@ -5,6 +5,7 @@ Ported from optim_main_rev.m and optim_rev.m.
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional
 
@@ -290,18 +291,18 @@ def optim_main_rev(
         WTR_optim_all = np.full((n_inc,) * no_dim, np.nan, dtype=float)
         MRR_optim_all = np.full((n_inc,) * no_dim, np.nan, dtype=float)
         MTR_optim_all = np.full((n_inc,) * no_dim, np.nan, dtype=float)
-        for ai in range(n_inc):
-            for bi in range(n_inc):
-                x = np.array([a_vals[ai], a_vals[bi]] + [a_vals[0]] * max(0, no_dim - 2), dtype=float)
-                Rating_all_rev, _, _ = optim_rev(
-                    x, x_map, baseline, config, cp_rev_all,
-                    combo_proc_optimbase, combo_new,
-                    Ri_optimbase, mot_all_optimbase, mot_half_optimbase,
-                )
-                idx = (ai, bi) + (0,) * (no_dim - 2)
-                WTR_optim_all[idx] = Rating_all_rev[0]
-                MRR_optim_all[idx] = Rating_all_rev[1]
-                MTR_optim_all[idx] = Rating_all_rev[2]
+        for count, indices in enumerate(itertools.product(range(n_inc), repeat=no_dim)):
+            if progress_callback:
+                progress_callback(count + 1, tot_it)
+            x = np.array([a_vals[i] for i in indices], dtype=float)
+            Rating_all_rev, _, _ = optim_rev(
+                x, x_map, baseline, config, cp_rev_all,
+                combo_proc_optimbase, combo_new,
+                Ri_optimbase, mot_all_optimbase, mot_half_optimbase,
+            )
+            WTR_optim_all[indices] = Rating_all_rev[0]
+            MRR_optim_all[indices] = Rating_all_rev[1]
+            MTR_optim_all[indices] = Rating_all_rev[2]
 
     TOR_optim_all = np.where(MRR_optim_all != 0, MTR_optim_all / MRR_optim_all, np.nan)
     return WTR_optim_all, MRR_optim_all, MTR_optim_all, TOR_optim_all, x_map
