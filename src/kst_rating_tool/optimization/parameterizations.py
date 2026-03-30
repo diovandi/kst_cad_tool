@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
+from numpy.typing import NDArray
 
 from ..constraints import (
     ConstraintSet,
@@ -12,6 +13,9 @@ from ..constraints import (
     PinConstraint,
     PointConstraint,
 )
+
+if TYPE_CHECKING:
+    from .revision import RevisionConfig
 
 
 class Parameterization(Protocol):
@@ -161,3 +165,64 @@ class Orientation1DParameterization:
             lines=lines,
             planes=list(self.base.planes),
         )
+
+
+def build_x_map(config: "RevisionConfig") -> tuple[NDArray[np.int_], int]:
+    """Compute x_map and no_dim from a RevisionConfig.
+
+    Returns (x_map, no_dim) where x_map[i] gives the 1-based column
+    indices into x for group i.  Types 4, 6, 9 consume two columns;
+    all others consume one.
+    """
+    row = 1
+    x_map = np.zeros((len(config.grp_members), 2), dtype=np.int_)
+    for i in range(len(config.grp_members)):
+        if config.grp_rev_type.flat[i] in (4, 6, 9):
+            x_map[i, 0] = row
+            x_map[i, 1] = row + 1
+            row += 2
+        else:
+            x_map[i, 0] = row
+            x_map[i, 1] = 0
+            row += 1
+    return x_map, row - 1
+
+
+class RevisionParameterization:
+    """Wraps the MATLAB-style _apply_search to produce a ConstraintSet from x in [-1,1]^d.
+
+    This bridges the factorial-grid revision code with the continuous
+    surrogate optimizers that expect ``Parameterization(x) -> ConstraintSet``.
+    """
+
+    def __init__(
+        self,
+        base: ConstraintSet,
+        config: "RevisionConfig",
+        x_map: NDArray[np.int_] | None = None,
+    ):
+        from .revision import RevisionConfig as _RC  # noqa: F401
+
+        self.base = base
+        self.config = config
+        if x_map is None:
+            x_map, _ = build_x_map(config)
+        self.x_map = x_map
+
+    def __call__(self, x: np.ndarray) -> ConstraintSet:
+        from .revision import _apply_search
+
+        cp, cpin, clin, cpln, cpln_prop = self.base.to_matlab_style_arrays()
+        cp = cp.copy()
+        cpin = cpin.copy()
+        clin = clin.copy()
+        cpln = cpln.copy()
+        cpln_prop = cpln_prop.copy() if cpln_prop.size else cpln_prop
+        _apply_search(
+            np.asarray(x, dtype=float),
+            self.x_map,
+            self.config,
+            cp, cpin, clin, cpln, cpln_prop,
+            cp.shape[0], cpin.shape[0], clin.shape[0], cpln.shape[0],
+        )
+        return ConstraintSet.from_matlab_style_arrays(cp, cpin, clin, cpln, cpln_prop)

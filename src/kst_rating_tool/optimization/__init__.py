@@ -3,7 +3,12 @@ Optimization routines ported from MATLAB (optim_main_rev, optim_main_red, etc.).
 """
 
 from .modification import ModificationResult, optimize_modification
-from .parameterizations import Orientation1DParameterization, PointOnLineParameterization
+from .parameterizations import (
+    Orientation1DParameterization,
+    PointOnLineParameterization,
+    RevisionParameterization,
+    build_x_map,
+)
 from .reduction import (
     ReductionResult,
     constraint_set_without,
@@ -53,11 +58,25 @@ __all__ = [
     "ModificationResult",
     "PointOnLineParameterization",
     "Orientation1DParameterization",
+    "RevisionParameterization",
+    "build_x_map",
 ]
 
 try:
-    from .surrogate import SurrogateResult, optimize_modification_surrogate
-    __all__.extend(["optimize_modification_surrogate", "SurrogateResult"])
+    from .surrogate import SurrogateResult, optimize_modification_surrogate, optimize_surrogate_adaptive
+    __all__.extend(["optimize_modification_surrogate", "optimize_surrogate_adaptive", "SurrogateResult"])
+except ImportError:
+    pass
+
+try:
+    from .surrogate_bo import BOResult, optimize_bo
+    __all__.extend(["optimize_bo", "BOResult"])
+except ImportError:
+    pass
+
+try:
+    from .surrogate_pareto import ParetoResult, ParetoPoint, optimize_pareto
+    __all__.extend(["optimize_pareto", "ParetoResult", "ParetoPoint"])
 except ImportError:
     pass
 
