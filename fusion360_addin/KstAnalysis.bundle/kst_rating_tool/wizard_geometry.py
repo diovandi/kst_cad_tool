@@ -9,6 +9,23 @@ from .constraints import ConstraintSet
 # Meeting spec: very small contact features can destabilize optimization / rating.
 MIN_RECOMMENDED_FEATURE_MM = 7.0
 
+# Wizard / assembly analysis: fewer contacts can yield meaningless ratings (zeros / instability).
+MIN_CONSTRAINTS_FOR_VALID_ANALYSIS = 7
+
+
+def constraint_count_errors(cs: ConstraintSet, *, minimum: int = MIN_CONSTRAINTS_FOR_VALID_ANALYSIS) -> List[str]:
+    """Return error messages if the constraint count is below *minimum* (wizard analysis threshold)."""
+    n = cs.total_cp
+    if n >= minimum:
+        return []
+    np_, n_pin, n_line, n_plane = len(cs.points), len(cs.pins), len(cs.lines), len(cs.planes)
+    return [
+        (
+            f"Need at least {minimum} contact constraints for a valid KST analysis (have {n}: "
+            f"{np_} point(s), {n_pin} pin(s), {n_line} line(s), {n_plane} plane(s))."
+        )
+    ]
+
 
 def geometry_size_warnings(cs: ConstraintSet, *, min_mm: float = MIN_RECOMMENDED_FEATURE_MM) -> List[str]:
     """Return human-readable warnings for line/plane sizes below *min_mm* (millimetres)."""

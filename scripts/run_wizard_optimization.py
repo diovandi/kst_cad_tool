@@ -211,7 +211,7 @@ def main(argv: list[str]) -> int:
         sys.path.insert(0, str(src_dir))
 
     from kst_rating_tool import analyze_constraints
-    from kst_rating_tool.wizard_geometry import geometry_size_warnings
+    from kst_rating_tool.wizard_geometry import constraint_count_errors, geometry_size_warnings
 
     payload = json.loads(in_path.read_text(encoding="utf-8"))
     analysis_input = payload.get("analysis_input", payload)
@@ -223,6 +223,10 @@ def main(argv: list[str]) -> int:
         return 1
 
     cs_base = _load_constraints_from_analysis_input(analysis_input)
+    count_msgs = constraint_count_errors(cs_base)
+    if count_msgs:
+        print("Constraint count check failed:\n" + "\n".join(count_msgs), file=sys.stderr)
+        return 1
     geom_msgs = geometry_size_warnings(cs_base)
     if geom_msgs:
         print(

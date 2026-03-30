@@ -101,6 +101,10 @@ def test_run_wizard_optimization_supports_pin_candidate(tmp_path: Path):
                 [0, 0, 0, 0, 0, 1],
                 [20, 0, 0, 0, 0, 1],
                 [0, 20, 0, 0, 0, 1],
+                [0, 0, 20, 0, 0, 1],
+                [10, 10, 0, 0, 0, 1],
+                [10, 0, 10, 0, 0, 1],
+                [0, 10, 10, 0, 0, 1],
             ],
             "pins": [[5, 5, 0, 0, 1, 0]],
             "lines": [],
@@ -112,7 +116,7 @@ def test_run_wizard_optimization_supports_pin_candidate(tmp_path: Path):
                 {
                     "type": "pin",
                     "index": 1,
-                    "constraint_index": 4,
+                    "constraint_index": 8,
                     "candidates": [
                         [5, 5, 0, 0, 1, 0],
                         [6, 5, 0, 0, 1, 0],
@@ -148,6 +152,10 @@ def test_run_wizard_optimization_supports_mixed_candidate_product(tmp_path: Path
                 [0, 0, 0, 0, 0, 1],
                 [20, 0, 0, 0, 0, 1],
                 [0, 20, 0, 0, 0, 1],
+                [0, 0, 20, 0, 0, 1],
+                [10, 10, 0, 0, 0, 1],
+                [10, 0, 10, 0, 0, 1],
+                [0, 10, 10, 0, 0, 1],
             ],
             "pins": [[5, 5, 0, 0, 1, 0]],
             "lines": [],
@@ -160,7 +168,7 @@ def test_run_wizard_optimization_supports_mixed_candidate_product(tmp_path: Path
             ],
             "candidate_matrix": [
                 {"type": "point", "index": 1, "constraint_index": 1, "candidates": [[0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 1]]},
-                {"type": "pin", "index": 1, "constraint_index": 4, "candidates": [[5, 5, 0, 0, 1, 0], [6, 5, 0, 0, 1, 0]]},
+                {"type": "pin", "index": 1, "constraint_index": 8, "candidates": [[5, 5, 0, 0, 1, 0], [6, 5, 0, 0, 1, 0]]},
             ],
         },
     }
@@ -192,6 +200,10 @@ def test_run_wizard_optimization_supports_hoc_line_and_plane_candidates(tmp_path
                 [0, 0, 0, 0, 0, 1],
                 [20, 0, 0, 0, 0, 1],
                 [0, 20, 0, 0, 0, 1],
+                [0, 0, 20, 0, 0, 1],
+                [10, 10, 0, 0, 0, 1],
+                [10, 0, 10, 0, 0, 1],
+                [0, 10, 10, 0, 0, 1],
             ],
             "pins": [],
             "lines": [[10, 10, 0, 1, 0, 0, 0, 0, 1, 12]],
@@ -206,7 +218,7 @@ def test_run_wizard_optimization_supports_hoc_line_and_plane_candidates(tmp_path
                 {
                     "type": "line",
                     "index": 1,
-                    "constraint_index": 4,
+                    "constraint_index": 8,
                     "candidates": [
                         [10, 10, 0, 1, 0, 0, 0, 0, 1, 12],
                         [12, 10, 0, 1, 0, 0, 0, 0, 1, 12],
@@ -215,7 +227,7 @@ def test_run_wizard_optimization_supports_hoc_line_and_plane_candidates(tmp_path
                 {
                     "type": "plane",
                     "index": 1,
-                    "constraint_index": 5,
+                    "constraint_index": 9,
                     "candidates": [
                         [0, 0, -5, 0, 0, 1, 2, 10],
                         [0, 0, -6, 0, 0, 1, 2, 10],

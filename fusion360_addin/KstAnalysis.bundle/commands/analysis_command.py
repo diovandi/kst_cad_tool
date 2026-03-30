@@ -1428,6 +1428,14 @@ class AnalysisCommand:
                             ui.messageBox("Add at least one constraint before running analysis.")
                             return
 
+                        if len(state["constraints"]) < 7:
+                            _step("run_analysis_in_dialog", "SKIP", reason="Fewer than 7 constraints")
+                            ui.messageBox(
+                                "KST analysis requires at least 7 contact constraints "
+                                f"(currently {len(state['constraints'])}). Add more constraints before running analysis."
+                            )
+                            return
+
                         # Clear stale arrows until we re-render from the latest analysis.
                         try:
                             import visualizer
