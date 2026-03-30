@@ -211,6 +211,7 @@ def main(argv: list[str]) -> int:
         sys.path.insert(0, str(src_dir))
 
     from kst_rating_tool import analyze_constraints
+    from kst_rating_tool.wizard_geometry import geometry_size_warnings
 
     payload = json.loads(in_path.read_text(encoding="utf-8"))
     analysis_input = payload.get("analysis_input", payload)
@@ -222,6 +223,13 @@ def main(argv: list[str]) -> int:
         return 1
 
     cs_base = _load_constraints_from_analysis_input(analysis_input)
+    geom_msgs = geometry_size_warnings(cs_base)
+    if geom_msgs:
+        print(
+            "Geometry size check failed (recommended minimum 7 mm):\n" + "\n".join(geom_msgs),
+            file=sys.stderr,
+        )
+        return 1
     counts = _constraint_counts(cs_base)
     modified_map = _build_modified_index_map(modified, counts)
 

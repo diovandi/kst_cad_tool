@@ -94,6 +94,7 @@ def main(argv: list[str]) -> int:
         PlaneConstraint,
     )
     from kst_rating_tool.reporting import result_close, result_open, write_report
+    from kst_rating_tool.wizard_geometry import geometry_size_warnings
 
     try:
         with input_path.open() as f:
@@ -201,6 +202,16 @@ def main(argv: list[str]) -> int:
 
         if cs.total_cp == 0:
             msg = "Input JSON has no constraints (points, pins, lines, or planes)."
+            logger.error(msg)
+            print(msg, file=sys.stderr)
+            _write_error_output(msg)
+            return 1
+
+        geom_msgs = geometry_size_warnings(cs)
+        if geom_msgs:
+            msg = "Geometry size check failed (recommended minimum 7 mm for line length / plane in-plane sizes):\n" + "\n".join(
+                geom_msgs
+            )
             logger.error(msg)
             print(msg, file=sys.stderr)
             _write_error_output(msg)

@@ -183,12 +183,17 @@ def _compute_orthonormal_basis_from_normal(nx, ny, nz):
     return (ux, uy, uz), (vx, vy, vz)
 
 
-def _get_plane_properties_from_face(face_ent):
+def _get_plane_properties_from_face(face_ent, force_type=None):
     """Compute (plane_type, plane_prop_str) for a Fusion face.
 
     - Rectangular (type 1): plane_prop_str has 8 values
       ux, uy, uz, width, vx, vy, vz, height
     - Circular (type 2): plane_prop_str has 1 value: radius
+
+    force_type:
+        None  — auto-detect circular faces from Fusion geometry type name
+        1     — always use rectangular in-plane bounds (even on cylindrical faces)
+        2     — always use circular approximation from sampled points
 
     Falls back to a small default rectangle if geometry details are unavailable.
     """
@@ -200,7 +205,12 @@ def _get_plane_properties_from_face(face_ent):
 
         # Detect circular faces (cylinders / cones, etc.) via geometry type name if available
         geom_type = type(geom).__name__ if geom is not None else ""
-        is_circular = geom_type.lower().startswith(("cylinder", "cone", "sphere"))
+        if force_type == 1:
+            is_circular = False
+        elif force_type == 2:
+            is_circular = True
+        else:
+            is_circular = geom_type.lower().startswith(("cylinder", "cone", "sphere"))
 
         # Gather sample points on the face from its vertices (or use bounding box as fallback)
         pts = []
@@ -521,6 +531,23 @@ class AnalysisCommand:
         invert_dir = cmd_inputs.addBoolValueInput("kst_invert_dir", "Invert Direction", True, "", False)
         edit_index_in = cmd_inputs.addStringValueInput("kst_edit_index", "Edit Index", "1")
 
+        plane_shape_in = cmd_inputs.addDropDownCommandInput(
+            "kst_plane_shape",
+            "Plane size mode",
+            adsk.core.DropDownStyles.TextListDropDownStyle,
+        )
+        for name in ("Auto (from face)", "Rectangular", "Circular"):
+            plane_shape_in.listItems.add(name, name == "Auto (from face)")
+        plane_shape_in.isVisible = False
+
+        plane_prop_manual = cmd_inputs.addStringValueInput(
+            "kst_plane_prop_manual",
+            "Plane prop override (optional, mm)",
+            "Leave empty to use face + mode above. Rectangular: 8 numbers "
+            "(ux,uy,uz, xlen, vx,vy,vz, ylen). Circular: 1 number (radius).",
+        )
+        plane_prop_manual.isVisible = False
+
         pick_feedback = cmd_inputs.addTextBoxCommandInput(
             "kst_pick_feedback",
             "Selection info",
@@ -549,15 +576,61 @@ class AnalysisCommand:
         )
 
         # ---- Helpers ----
+        def _plane_force_type_from_ui():
+            sel = plane_shape_in.selectedItem.name if plane_shape_in.selectedItem else "Auto (from face)"
+            if sel.startswith("Rectangular"):
+                return 1
+            if sel.startswith("Circular"):
+                return 2
+            return None
+
+        def _format_plane_detail_line(r):
+            if (r.get("type") or "").strip() != "Plane":
+                return ""
+            try:
+                pt = int(str(r.get("plane_type", "1")).strip())
+            except Exception:
+                pt = 1
+            prop = (r.get("plane_prop") or "").strip()
+            if pt == 1:
+                parts = [float(x) for x in prop.replace(",", " ").split() if str(x).strip()]
+                if len(parts) >= 8:
+                    w, h = parts[3], parts[7]
+                    return f"\n   rectangular: width={w:.4g} mm  height={h:.4g} mm  (cpln_prop)"
+                return f"\n   rectangular: prop={prop}"
+            if pt == 2:
+                parts = [float(x) for x in prop.replace(",", " ").split() if str(x).strip()]
+                if len(parts) >= 1:
+                    rad = parts[0]
+                    return f"\n   circular: radius={rad:.4g} mm  diameter={2.0 * rad:.4g} mm"
+            return f"\n   plane_type={pt}  prop={prop}"
+
+        def _parse_plane_manual_override(text):
+            """Return (plane_type_int, plane_prop_str) or (None, None) if empty/invalid."""
+            raw = (text or "").strip()
+            if not raw:
+                return None, None
+            try:
+                vals = [float(x.strip()) for x in raw.replace(",", " ").split() if str(x).strip()]
+            except Exception:
+                return None, None
+            if len(vals) == 8:
+                return 1, raw
+            if len(vals) == 1:
+                return 2, raw
+            return None, None
+
         def _format_constraints_text(rows):
             if not rows:
                 return "(none yet)"
             lines = []
             for i, r in enumerate(rows, start=1):
-                lines.append(
+                line = (
                     f"{i}. {r.get('cp_name','CP')}  {r.get('type','Point')}  "
                     f"loc=({r.get('location','')}) mm  orient=({r.get('orientation','')})"
                 )
+                line += _format_plane_detail_line(r)
+                lines.append(line)
             return "\n".join(lines)
 
         def _update_constraints_box():
@@ -680,6 +753,11 @@ class AnalysisCommand:
             # Defaults
             orient_sel.isVisible = True
             orient_method.isVisible = True
+            try:
+                plane_shape_in.isVisible = False
+                plane_prop_manual.isVisible = False
+            except Exception:
+                pass
 
             try:
                 if ctype == "Point":
@@ -720,6 +798,11 @@ class AnalysisCommand:
                     orient_sel.isVisible = False
                     # Location: face that defines the plane contact
                     loc_sel.addSelectionFilter("Faces")
+                    try:
+                        plane_shape_in.isVisible = True
+                        plane_prop_manual.isVisible = True
+                    except Exception:
+                        pass
             except Exception:
                 # If filter configuration fails, keep whatever defaults Fusion provides.
                 _step("configure_selection_filters", "FAIL", ctype=ctype, point_method=point_method)
@@ -1161,7 +1244,27 @@ class AnalysisCommand:
                             normal = _get_normal_or_axis_from_entity(loc_ent)
                             loc_str = "{}, {}, {}".format(pt[0], pt[1], pt[2])
                             orient_str = "{}, {}, {}".format(normal[0], normal[1], normal[2])
-                            plane_type, plane_prop = _get_plane_properties_from_face(loc_ent)
+                            manual_txt = (plane_prop_manual.value or "").strip()
+                            pt_override, _prop_ok = _parse_plane_manual_override(manual_txt)
+                            if manual_txt:
+                                if pt_override is None:
+                                    _step(
+                                        "ui_add_constraint",
+                                        "FAIL",
+                                        ctype=ctype,
+                                        cp_name=cp_name,
+                                        reason="Invalid plane_prop override",
+                                    )
+                                    ui.messageBox(
+                                        "Plane prop override must be 8 numbers (rectangular: "
+                                        "ux,uy,uz,xlen,vx,vy,vz,ylen) or 1 number (circular radius), mm."
+                                    )
+                                    return
+                                plane_type, plane_prop = pt_override, manual_txt
+                            else:
+                                plane_type, plane_prop = _get_plane_properties_from_face(
+                                    loc_ent, force_type=_plane_force_type_from_ui()
+                                )
                             row = {
                                 "cp_name": cp_name,
                                 "type": ctype,
@@ -1169,6 +1272,11 @@ class AnalysisCommand:
                                 "orientation": orient_str,
                                 "plane_type": plane_type,
                                 "plane_prop": plane_prop,
+                                "plane_size_mode": (
+                                    plane_shape_in.selectedItem.name
+                                    if plane_shape_in.selectedItem
+                                    else "Auto (from face)"
+                                ),
                             }
                         else:
                             _step("ui_add_constraint", "FAIL", ctype=ctype, cp_name=cp_name, reason="Unknown constraint type")
@@ -1259,11 +1367,29 @@ class AnalysisCommand:
                                     loc_ent = loc_sel.selection(0).entity
                                     pt = _get_point_from_entity(loc_ent)
                                     normal = _get_normal_or_axis_from_entity(loc_ent)
-                                    plane_type, plane_prop = _get_plane_properties_from_face(loc_ent)
+                                    manual_txt = (plane_prop_manual.value or "").strip()
+                                    pt_override, _ok = _parse_plane_manual_override(manual_txt)
+                                    if manual_txt:
+                                        if pt_override is None:
+                                            ui.messageBox(
+                                                "Plane prop override must be 8 numbers (rectangular) "
+                                                "or 1 number (radius), mm."
+                                            )
+                                            return
+                                        plane_type, plane_prop = pt_override, manual_txt
+                                    else:
+                                        plane_type, plane_prop = _get_plane_properties_from_face(
+                                            loc_ent, force_type=_plane_force_type_from_ui()
+                                        )
                                     row["location"] = _fmt_vec3(pt)
                                     row["orientation"] = _fmt_vec3(normal)
                                     row["plane_type"] = plane_type
                                     row["plane_prop"] = plane_prop
+                                    row["plane_size_mode"] = (
+                                        plane_shape_in.selectedItem.name
+                                        if plane_shape_in.selectedItem
+                                        else "Auto (from face)"
+                                    )
                         except Exception:
                             pass
                         row = _apply_invert_to_row(row)
@@ -1317,7 +1443,9 @@ class AnalysisCommand:
                             ctype = r.get("type", "Point")
                             loc = r.get("location", "")
                             ori = r.get("orientation", "")
-                            summary_lines.append(f"{i}. {cp_name} [{ctype}] loc=({loc}) mm  orient=({ori})")
+                            line = f"{i}. {cp_name} [{ctype}] loc=({loc}) mm  orient=({ori})"
+                            line += _format_plane_detail_line(r)
+                            summary_lines.append(line)
                         summary_text = (
                             "KST Analysis inputs (units: mm)\n\n"
                             + "\n".join(summary_lines)
