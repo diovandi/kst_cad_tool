@@ -8,22 +8,26 @@ Build a simplified circular-cap ("coin") model in Fusion, define constraints in 
 
 ## Target reference
 
-Use the same logical setup as `case4_endcap.m`:
+Use the same logical setup as **`matlab_script/Input_files/case4a_endcap_tradeoff.m` with `no_snap == 2`** (Rusli dissertation / thesis branch: six point contacts at **z = 0.188**, circular plane radius **0.625**, same length units as the MATLAB reference—not necessarily millimetres):
 
-- 6 point contacts
+- 6 point contacts (positions and normals as in that branch)
 - 1 pin
-- 1 circular plane (type 2 with radius)
+- 1 circular plane (type 2 with radius **0.625**)
+
+The older `case4_endcap.m` layout uses **z = 0** and different in-plane point placement; the fixture is intentionally aligned with **`case4a_endcap_tradeoff` no_snap==2**, not `case4_endcap.m`.
 
 Reference JSON fixture:
 
 - `test_inputs/endcap_circular_plane.json`
 
-Expected CLI metrics:
+Expected CLI metrics (must match `python scripts/run_python_case.py case4a_endcap_tradeoff --no-snap 2`):
 
 - WTR = 1.0
-- MRR = 1.3333333333333333
-- MTR = 1.6272000000000002
-- TOR = 1.2204000000000002
+- MRR = 1.2774
+- MTR = 1.8113
+- TOR = 1.4179
+
+**Units / geometry check:** The wizard treats JSON lengths as **millimetres** for the recommended minimum feature size (7 mm). Thesis/MATLAB coordinates are **small** (e.g. radius 0.625), so validating this fixture with the CLI requires **`--skip-geometry-check`**. Fusion exports are still typically in mm—you may need to **scale** your CAD so exported coordinates match the same **constraint geometry** as the reference (or compare ratios / re-scale numerically).
 
 ## Fusion build steps
 
@@ -66,18 +70,18 @@ python scripts/run_wizard_analysis.py results/python/fusion_circular_cap_wizard_
 
 ## Latest validation result
 
-CLI re-validation was run from the fixture JSON and matches the expected metrics:
+CLI re-validation from the fixture JSON (thesis-aligned numerics; geometry check skipped):
 
 ```bash
-python scripts/run_wizard_analysis.py test_inputs/endcap_circular_plane.json results/python/fusion_circular_cap_validation.tsv
+python scripts/run_wizard_analysis.py test_inputs/endcap_circular_plane.json results/python/fusion_circular_cap_validation.tsv --skip-geometry-check
 ```
 
 Observed:
 
 - WTR = 1.0
-- MRR = 1.3333333333333333
-- MTR = 1.6272000000000002
-- TOR = 1.2204000000000002
+- MRR = 1.2774
+- MTR = 1.8113
+- TOR = 1.4179
 
 Output file:
 

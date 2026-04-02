@@ -14,7 +14,13 @@ def test_run_wizard_analysis_subprocess_json_fixture(tmp_path: Path):
 
     out_txt = tmp_path / "results_wizard.txt"
     proc = subprocess.run(
-        [sys.executable, str(script), str(fixture), str(out_txt)],
+        [
+            sys.executable,
+            str(script),
+            str(fixture),
+            str(out_txt),
+            "--skip-geometry-check",
+        ],
         capture_output=True,
         text=True,
         cwd=str(repo_root),

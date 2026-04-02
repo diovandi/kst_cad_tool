@@ -32,3 +32,30 @@ debug_*.npz
 .DS_Store
 Thumbs.db
 
+# Coverage artifacts
+.coverage
+
+# Generated Python analysis outputs
+results/python/**
+results/python/*.html
+results/python/*.log
+results/python/*.tsv
+results/python/*_detailed.json
+results/python/results_python_*.txt
+
+# Generated/packaged docs and office exports
+docs/**/*.pdf
+docs/**/*.docx
+docs/**/*.zip
+
+# LaTeX and generated wizard outputs in docs
+docs/**/out/**
+docs/**/wizard_outputs/**
+
+# Local heavyweight thesis workspace (keep untracked)
+docs/COLLOQUIUM_IMPLEMENTATION_OF_MECHANICAL_ASSEMBLY_RATING_TOOL_BASED_ON_KINEMATIC_SCREW_THEORY/**
+
+# Local TeX toolchain bundles
+tools/TinyTeX.zip
+tools/tinytex/**
+

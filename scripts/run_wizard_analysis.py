@@ -3,7 +3,12 @@
 Run KST analysis for the Fusion 360 wizard input JSON.
 
 Usage:
-  python scripts/run_wizard_analysis.py <input_json> <output_txt>
+  python scripts/run_wizard_analysis.py <input_json> <output_txt> [--skip-geometry-check]
+
+  Optional:
+    --skip-geometry-check  Run analysis even if line/plane sizes are below the
+                          recommended Fusion minimum (7 mm). Use for fixtures
+                          that use MATLAB/thesis length units (not mm).
 
 This is used by the Fusion 360 add-in when Fusion's embedded Python does not
 have numpy installed. It runs in your normal Python environment where the
@@ -35,12 +40,20 @@ def _setup_logger(output_path: Path) -> logging.Logger:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 3:
-        print("Usage: python scripts/run_wizard_analysis.py <input_json> <output_txt>", file=sys.stderr)
+    args = argv[1:]
+    skip_geometry_check = False
+    if "--skip-geometry-check" in args:
+        skip_geometry_check = True
+        args = [a for a in args if a != "--skip-geometry-check"]
+    if len(args) != 2:
+        print(
+            "Usage: python scripts/run_wizard_analysis.py <input_json> <output_txt> [--skip-geometry-check]",
+            file=sys.stderr,
+        )
         return 1
 
-    input_path = Path(argv[1]).resolve()
-    output_path = Path(argv[2]).resolve()
+    input_path = Path(args[0]).resolve()
+    output_path = Path(args[1]).resolve()
     detail_json_path = output_path.with_name(f"{output_path.stem}_detailed.json")
 
     logger = _setup_logger(output_path)
@@ -220,10 +233,13 @@ def main(argv: list[str]) -> int:
             msg = "Geometry size check failed (recommended minimum 7 mm for line length / plane in-plane sizes):\n" + "\n".join(
                 geom_msgs
             )
-            logger.error(msg)
-            print(msg, file=sys.stderr)
-            _write_error_output(msg)
-            return 1
+            if skip_geometry_check:
+                logger.warning("%s (continuing because --skip-geometry-check was set)", msg.replace("\n", " | "))
+            else:
+                logger.error(msg)
+                print(msg, file=sys.stderr)
+                _write_error_output(msg)
+                return 1
 
         try:
             detailed = analyze_constraints_detailed(cs)
