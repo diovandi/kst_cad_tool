@@ -2,9 +2,11 @@
 Optimization routines ported from MATLAB (optim_main_rev, optim_main_red, etc.).
 """
 
+from .addition import AdditionResult, constraint_set_with, optim_main_add, optimize_addition
 from .modification import ModificationResult, optimize_modification
 from .parameterizations import (
     Orientation1DParameterization,
+    PerturbationParameterization,
     PointOnLineParameterization,
     RevisionParameterization,
     build_x_map,
@@ -32,6 +34,10 @@ from .search_space import (
 )
 
 __all__ = [
+    "AdditionResult",
+    "constraint_set_with",
+    "optim_main_add",
+    "optimize_addition",
     "RevisionConfig",
     "optim_main_rev",
     "optim_rev",
@@ -58,6 +64,7 @@ __all__ = [
     "ModificationResult",
     "PointOnLineParameterization",
     "Orientation1DParameterization",
+    "PerturbationParameterization",
     "RevisionParameterization",
     "build_x_map",
 ]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, List, Protocol
 
 import numpy as np
 from numpy.typing import NDArray
@@ -11,6 +11,7 @@ from ..constraints import (
     ConstraintSet,
     LineConstraint,
     PinConstraint,
+    PlaneConstraint,
     PointConstraint,
 )
 
@@ -186,6 +187,97 @@ def build_x_map(config: "RevisionConfig") -> tuple[NDArray[np.int_], int]:
             x_map[i, 1] = 0
             row += 1
     return x_map, row - 1
+
+
+class PerturbationParameterization:
+    """Maps x in [-1, 1]^(3*n) to a perturbed ConstraintSet.
+
+    Each constraint's position is shifted by ``x[3*i : 3*i+3] * max_delta``.
+    This bridges sensitivity analysis (identifying *which* constraint is most
+    sensitive) with continuous optimizers such as ``optimize_modification`` and
+    ``optimize_bo`` (finding *how far* to move it for best improvement).
+
+    Parameters
+    ----------
+    base
+        Base constraint set (all four types supported).
+    max_delta
+        Maximum positional perturbation per axis in model units.
+    constraint_indices
+        Optional list of global 0-based constraint indices to perturb.
+        If None (default), all constraints are perturbed (d = 3 * total_cp).
+
+    Examples
+    --------
+    >>> param = PerturbationParameterization(cs, max_delta=0.5)
+    >>> from kst_rating_tool.optimization import optimize_modification
+    >>> result = optimize_modification(param, max_eval=200)
+    """
+
+    def __init__(
+        self,
+        base: ConstraintSet,
+        max_delta: float = 0.5,
+        constraint_indices: list[int] | None = None,
+    ) -> None:
+        self.base = base
+        self.max_delta = float(max_delta)
+        total = base.total_cp
+        if constraint_indices is None:
+            self._indices: list[int] = list(range(total))
+        else:
+            for idx in constraint_indices:
+                if idx < 0 or idx >= total:
+                    raise ValueError(
+                        f"constraint_index {idx} out of range (total_cp={total})"
+                    )
+            self._indices = list(constraint_indices)
+
+    @property
+    def n_params(self) -> int:
+        """Dimensionality of the parameter vector: 3 * len(constraint_indices)."""
+        return 3 * len(self._indices)
+
+    @property
+    def bounds(self) -> list[tuple[float, float]]:
+        """Bounds for each parameter dimension: [(-1, 1), ...] * n_params."""
+        return [(-1.0, 1.0)] * self.n_params
+
+    def __call__(self, x: np.ndarray) -> ConstraintSet:
+        x_flat = np.asarray(x, dtype=float).ravel()
+        if x_flat.size != self.n_params:
+            raise ValueError(
+                f"Expected x of length {self.n_params}, got {x_flat.size}"
+            )
+
+        n_pt = len(self.base.points)
+        n_pin = len(self.base.pins)
+        n_lin = len(self.base.lines)
+
+        # Deep-copy all constraints; then apply perturbations to selected ones
+        points = [PointConstraint(p.position.copy(), p.normal.copy()) for p in self.base.points]
+        pins = [PinConstraint(p.center.copy(), p.axis.copy()) for p in self.base.pins]
+        lines = [
+            LineConstraint(ln.midpoint.copy(), ln.line_dir.copy(), ln.constraint_dir.copy(), ln.length)
+            for ln in self.base.lines
+        ]
+        planes = [
+            PlaneConstraint(pl.midpoint.copy(), pl.normal.copy(), pl.type, pl.prop.copy())
+            for pl in self.base.planes
+        ]
+
+        for k, global_idx in enumerate(self._indices):
+            delta = x_flat[3 * k : 3 * k + 3] * self.max_delta
+            if global_idx < n_pt:
+                points[global_idx].position += delta
+            elif global_idx < n_pt + n_pin:
+                pins[global_idx - n_pt].center += delta
+            elif global_idx < n_pt + n_pin + n_lin:
+                lines[global_idx - n_pt - n_pin].midpoint += delta
+            else:
+                planes[global_idx - n_pt - n_pin - n_lin].midpoint += delta
+
+        return ConstraintSet(points=points, pins=pins, lines=lines, planes=planes)
 
 
 class RevisionParameterization:
