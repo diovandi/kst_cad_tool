@@ -6,7 +6,7 @@ Measures:
 - Wall-clock time
 - Accuracy relative to exhaustive/high-budget DE reference
 
-Run with: pytest tests/test_benchmark_surrogates.py -v -s
+Run with: pytest benchmarks/test_benchmark_surrogates.py -v -s
 """
 
 from __future__ import annotations

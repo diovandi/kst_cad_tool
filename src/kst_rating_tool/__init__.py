@@ -18,6 +18,7 @@ from .pipeline import (  # noqa: F401
     SpecmotResult,
     analyze_constraints,
     analyze_constraints_detailed,
+    analyze_constraints_gpu,
     analyze_specified_motions,
 )
 from .optimization import (  # noqa: F401

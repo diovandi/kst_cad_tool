@@ -15,8 +15,8 @@ This is the CAD-to-math contract. The end-cap case has six point contacts, one p
 ## 0:45-2:00 - Run KST Analysis
 
 ```powershell
-python3 scripts/run_wizard_analysis.py test_inputs\endcap_circular_plane.json results\presentation_endcap.tsv --skip-geometry-check
-Get-Content results\presentation_endcap.tsv
+python3 scripts/run_wizard_analysis.py test_inputs\endcap_circular_plane.json results\presentation\presentation_endcap.tsv --skip-geometry-check
+Get-Content results\presentation\presentation_endcap.tsv
 ```
 
 Expected key line:
@@ -42,8 +42,8 @@ The optimization input contains the baseline `analysis_input` plus a `candidate_
 ## 3:00-4:20 - Run Candidate Sweep
 
 ```powershell
-python3 scripts/run_wizard_optimization.py matlab_script\Input_files\generic_example_optimization.json results\presentation_optimization.tsv
-Get-Content results\presentation_optimization.tsv
+python3 scripts/run_wizard_optimization.py matlab_script\Input_files\generic_example_optimization.json results\presentation\presentation_optimization.tsv
+Get-Content results\presentation\presentation_optimization.tsv
 ```
 
 Expected table:

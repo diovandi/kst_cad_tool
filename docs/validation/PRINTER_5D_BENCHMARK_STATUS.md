@@ -69,7 +69,7 @@ markers = [
 
 ### 1.6 `test_benchmark_surrogates.py` -- Added printer 5D benchmark tests (DONE)
 
-**File**: `tests/test_benchmark_surrogates.py`
+**File**: `benchmarks/test_benchmark_surrogates.py`
 
 Added ~220 lines at the end of the file:
 
@@ -133,7 +133,7 @@ The factorial grid is completely impractical in Python for this case. The surrog
 ### Run 1: Factorial baseline test (KILLED)
 
 ```
-pytest tests/test_benchmark_surrogates.py::TestBenchmarkPrinter5D::test_factorial_baseline
+pytest benchmarks/test_benchmark_surrogates.py::TestBenchmarkPrinter5D::test_factorial_baseline
 ```
 
 - Used the original plan with `no_step=4` and `_run_factorial` (calling `optim_main_rev`)
@@ -143,7 +143,7 @@ pytest tests/test_benchmark_surrogates.py::TestBenchmarkPrinter5D::test_factoria
 ### Run 2: DE baseline with `polish=True` (KILLED)
 
 ```
-pytest tests/test_benchmark_surrogates.py::TestBenchmarkPrinter5D::test_de_baseline
+pytest benchmarks/test_benchmark_surrogates.py::TestBenchmarkPrinter5D::test_de_baseline
 ```
 
 - The `de_reference` fixture (max_eval=200) runs first, then the test (max_eval=80)
@@ -155,7 +155,7 @@ pytest tests/test_benchmark_surrogates.py::TestBenchmarkPrinter5D::test_de_basel
 ### Run 3: DE baseline with `polish=False` (KILLED)
 
 ```
-pytest tests/test_benchmark_surrogates.py::TestBenchmarkPrinter5D::test_de_baseline
+pytest benchmarks/test_benchmark_surrogates.py::TestBenchmarkPrinter5D::test_de_baseline
 ```
 
 - After adding `polish=False` to bypass L-BFGS-B polishing
@@ -235,7 +235,7 @@ None of the printer 5D tests have run to completion. The code is written and sho
 |------|-------------|
 | `src/kst_rating_tool/optimization/surrogate_bo.py` | Bayesian Optimization (from previous session) |
 | `src/kst_rating_tool/optimization/surrogate_pareto.py` | Multi-output Pareto (from previous session) |
-| `tests/test_benchmark_surrogates.py` | All benchmarks including new printer 5D tests |
+| `benchmarks/test_benchmark_surrogates.py` | All benchmarks including new printer 5D tests |
 | `tests/test_surrogate_strategies.py` | Unit tests for surrogate strategies (from previous session) |
 
 ### Git branch: `optimization` (via worktree)

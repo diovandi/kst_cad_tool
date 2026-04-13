@@ -19,7 +19,7 @@ For the add-in, **MATLAB Compiler** is the natural choice: produce a `.exe` that
    - Takes one argument: path to the generic JSON input file (and optionally output path).
    - Calls `load_generic_input`, `inputfile_check`, `input_preproc`, `cp_to_wrench`, `combo_preproc`, `main_loop`, then rating logic.
    - Writes WTR, MTR, TOR (and optionally full report) to an output file.
-   - Example: use or adapt [run_wizard_analysis.m](../matlab_script/Analysis%20and%20design%20tool/run_wizard_analysis.m).
+   - Example: use or adapt [run_wizard_analysis.m](../../matlab_script/Analysis%20and%20design%20tool/run_wizard_analysis.m).
 
 2. **Compile (from MATLAB):**
    ```matlab

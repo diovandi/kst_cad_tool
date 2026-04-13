@@ -35,13 +35,24 @@ Thumbs.db
 # Coverage artifacts
 .coverage
 
+# Local agent/editor state
+.claude/
+
+# Local DirectML virtual environment
+.venv-directml/
+
 # Generated Python analysis outputs
+results/**
 results/python/**
 results/python/*.html
 results/python/*.log
 results/python/*.tsv
 results/python/*_detailed.json
 results/python/results_python_*.txt
+results/presentation/*.html
+results/presentation/*.log
+results/presentation/*.tsv
+results/presentation/*_detailed.json
 
 # Generated/packaged docs and office exports
 docs/**/*.pdf

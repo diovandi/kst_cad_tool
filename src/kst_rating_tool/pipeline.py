@@ -12,14 +12,11 @@ from .combination import combo_preproc
 from .constraints import ConstraintSet
 from .input_wr import input_wr_compose
 from .motion import ScrewMotion, rec_mot, specmot_row_to_screw
-from .rating import (
-    RatingResults,
-    aggregate_ratings,
-    rate_cp,
-    rate_cpin,
-    rate_clin,
-    rate_cpln1,
-    rate_cpln2,
+from .numeric_backend import BackendState, resolve_accelerator, should_fallback_torch_to_numpy
+from .rating import RatingResults, aggregate_ratings
+from .rating_batched import (
+    rate_motion_all_constraints_batched_numpy,
+    rate_motion_all_constraints_batched_torch,
 )
 from .react_wr import form_combo_wrench, react_wr_5_compose
 from .utils import matlab_rank
@@ -95,33 +92,23 @@ def _rate_motion_all_constraints(
     clin: NDArray[np.float64],
     cpln: NDArray[np.float64],
     cpln_prop: NDArray[np.float64],
+    backend_state: BackendState | None = None,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """Build one motion's Rcp_pos, Rcp_neg, Rcpin, Rclin_pos, Rclin_neg, Rcpln_pos, Rcpln_neg (match main_loop.m)."""
-    no_cp, no_cpin, no_clin, no_cpln = cp.shape[0], cpin.shape[0], clin.shape[0], cpln.shape[0]
-    Rcp_pos = np.full(no_cp, np.inf, dtype=float)
-    Rcp_neg = np.full(no_cp, np.inf, dtype=float)
-    for j in range(no_cp):
-        Rcp_pos[j], Rcp_neg[j] = rate_cp(mot_arr, react_wr_5, input_wr, cp[j, :])
-    Rcpin_row = np.full(no_cpin, np.inf, dtype=float)
-    for j in range(no_cpin):
-        Rcpin_row[j] = rate_cpin(mot_arr, react_wr_5, input_wr, cpin[j, :])
-    Rclin_pos = np.full(no_clin, np.inf, dtype=float)
-    Rclin_neg = np.full(no_clin, np.inf, dtype=float)
-    for j in range(no_clin):
-        Rclin_pos[j], Rclin_neg[j] = rate_clin(mot_arr, react_wr_5, input_wr, clin[j, :])
-    Rcpln_pos = np.full(no_cpln, np.inf, dtype=float)
-    Rcpln_neg = np.full(no_cpln, np.inf, dtype=float)
-    for j in range(no_cpln):
-        if cpln[j, 6] == 1:
-            Rcpln_pos[j], Rcpln_neg[j] = rate_cpln1(mot_arr, react_wr_5, input_wr, cpln[j, :], cpln_prop[j, :])
-        else:
-            Rcpln_pos[j], Rcpln_neg[j] = rate_cpln2(mot_arr, react_wr_5, input_wr, cpln[j, :], cpln_prop[j, :])
-    return Rcp_pos, Rcp_neg, Rcpin_row, Rclin_pos, Rclin_neg, Rcpln_pos, Rcpln_neg
+    if backend_state is not None and backend_state.kind == "torch":
+        return rate_motion_all_constraints_batched_torch(
+            mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop, backend_state
+        )
+    return rate_motion_all_constraints_batched_numpy(
+        mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop
+    )
 
 
 def analyze_constraints(
     constraints: ConstraintSet,
     n_workers: int = 1,
+    accelerator: str = "numpy",
+    device: str | None = None,
 ) -> RatingResults:
     """High-level analysis pipeline for a fixed configuration.
 
@@ -135,7 +122,25 @@ def analyze_constraints(
     n_workers
         Number of parallel workers for the combo loop (1 = sequential). Uses process-based
         parallelism; results are merged in combo order so output matches sequential run.
+    accelerator
+        ``numpy`` (default, batched CPU), ``torch`` (optional PyTorch on ``device``), or
+        ``auto`` (prefers CUDA/MPS if available). Multiprocessing workers always use NumPy.
+    device
+        PyTorch device string when ``accelerator`` is ``torch`` (e.g. ``cuda``, ``cpu``).
     """
+
+    backend_state: BackendState | None = None
+    if n_workers is None or n_workers <= 1:
+        try:
+            st = resolve_accelerator(accelerator, device)
+            if st.kind == "torch" and should_fallback_torch_to_numpy(
+                st, (max(1, constraints.total_cp), 6, 6)
+            ):
+                backend_state = None
+            else:
+                backend_state = st if st.kind == "torch" else None
+        except ImportError:
+            backend_state = None
 
     wr_all_sys, pts, max_d = cp_to_wrench(constraints)
     wr_all: List[NDArray[np.float64]] = [w.as_array() for w in wr_all_sys]
@@ -207,7 +212,7 @@ def analyze_constraints(
             input_wr, _ = input_wr_compose(mot, pts, max_d)
             react_wr_5 = react_wr_5_compose(constraints, combo_row, mot.rho)
             rcp_pos, rcp_neg, rcpin, rclin_pos, rclin_neg, rcpln_pos, rcpln_neg = _rate_motion_all_constraints(
-                mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop
+                mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop, backend_state
             )
             Rcp_pos_rows.append(rcp_pos)
             Rcp_neg_rows.append(rcp_neg)
@@ -245,9 +250,20 @@ def analyze_constraints(
     return aggregate_ratings(R_uniq)
 
 
+def analyze_constraints_gpu(
+    constraints: ConstraintSet,
+    device: str | None = None,
+    n_workers: int = 1,
+) -> RatingResults:
+    """Same as ``analyze_constraints`` with ``accelerator='torch'`` (optional PyTorch)."""
+    return analyze_constraints(constraints, n_workers=n_workers, accelerator="torch", device=device)
+
+
 def analyze_constraints_detailed(
     constraints: ConstraintSet,
     n_workers: int = 1,
+    accelerator: str = "numpy",
+    device: str | None = None,
 ) -> DetailedAnalysisResult:
     """Full analysis returning R, mot_half, combo_proc, combo_dup_idx for optimizers.
 
@@ -260,7 +276,24 @@ def analyze_constraints_detailed(
     n_workers
         Number of parallel workers for the combo loop (1 = sequential). Uses process-based
         parallelism; results are merged in combo order so output matches sequential run.
+    accelerator
+        Same as ``analyze_constraints``.
+    device
+        Same as ``analyze_constraints``.
     """
+    backend_state: BackendState | None = None
+    if n_workers is None or n_workers <= 1:
+        try:
+            st = resolve_accelerator(accelerator, device)
+            if st.kind == "torch" and should_fallback_torch_to_numpy(
+                st, (max(1, constraints.total_cp), 6, 6)
+            ):
+                backend_state = None
+            else:
+                backend_state = st if st.kind == "torch" else None
+        except ImportError:
+            backend_state = None
+
     wr_all_sys, pts, max_d = cp_to_wrench(constraints)
     wr_all_list: List[NDArray[np.float64]] = [w.as_array() for w in wr_all_sys]
 
@@ -341,7 +374,7 @@ def analyze_constraints_detailed(
             input_wr, _ = input_wr_compose(mot, pts, max_d)
             react_wr_5 = react_wr_5_compose(constraints, combo_row, mot.rho)
             rcp_pos, rcp_neg, rcpin, rclin_pos, rclin_neg, rcpln_pos, rcpln_neg = _rate_motion_all_constraints(
-                mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop
+                mot_arr, react_wr_5, input_wr, cp, cpin, clin, cpln, cpln_prop, backend_state
             )
             Rcp_pos_rows.append(rcp_pos)
             Rcp_neg_rows.append(rcp_neg)

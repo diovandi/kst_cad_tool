@@ -228,8 +228,8 @@ This is the CAD-to-math contract. The end-cap case has six point contacts, one p
 Command:
 
 ```powershell
-python3 scripts/run_wizard_analysis.py test_inputs\endcap_circular_plane.json results\presentation_endcap.tsv --skip-geometry-check
-Get-Content results\presentation_endcap.tsv
+python3 scripts/run_wizard_analysis.py test_inputs\endcap_circular_plane.json results\presentation\presentation_endcap.tsv --skip-geometry-check
+Get-Content results\presentation\presentation_endcap.tsv
 ```
 
 Expected output:
@@ -260,8 +260,8 @@ This file wraps an `analysis_input` plus an `optimization.candidate_matrix`. Her
 Command:
 
 ```powershell
-python3 scripts/run_wizard_optimization.py matlab_script\Input_files\generic_example_optimization.json results\presentation_optimization.tsv
-Get-Content results\presentation_optimization.tsv
+python3 scripts/run_wizard_optimization.py matlab_script\Input_files\generic_example_optimization.json results\presentation\presentation_optimization.tsv
+Get-Content results\presentation\presentation_optimization.tsv
 ```
 
 Expected output:

@@ -8,8 +8,10 @@ Usage:
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import product
 from pathlib import Path
 from typing import Any
@@ -194,13 +196,72 @@ def _apply_candidate_to_constraints(cs, ctype: str, idx: int, cand: list[float])
     raise ValueError(f"Unsupported constraint type: {ctype}")
 
 
-def main(argv: list[str]) -> int:
-    if len(argv) < 2 or len(argv) > 3:
-        print("Usage: python scripts/run_wizard_optimization.py <input_json> [output_txt]", file=sys.stderr)
-        return 1
+def _wizard_eval_one_combo(
+    args: tuple[Any, ...],
+) -> tuple[int, float, float, float, float]:
+    """Picklable worker: (analysis_input, candidate_sets, combo, accelerator, device, index)."""
+    (
+        analysis_input,
+        candidate_sets,
+        combo,
+        accelerator,
+        device,
+        index,
+    ) = args
+    repo_root = Path(__file__).resolve().parent.parent
+    src_dir = repo_root / "src"
+    if str(src_dir) not in sys.path:
+        sys.path.insert(0, str(src_dir))
+    from kst_rating_tool import analyze_constraints
 
-    in_path = Path(argv[1]).resolve()
-    out_path = Path(argv[2]).resolve() if len(argv) == 3 else in_path.with_name("results_wizard_optim.txt")
+    cs = _load_constraints_from_analysis_input(analysis_input)
+    for (target, _), cand in zip(candidate_sets, combo):
+        _apply_candidate_to_constraints(cs, target[0], target[1], cand)
+    rating = analyze_constraints(cs, accelerator=accelerator, device=device)
+    return (
+        index,
+        float(rating.WTR),
+        float(rating.MRR),
+        float(rating.MTR),
+        float(rating.TOR),
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = argv if argv is not None else sys.argv
+    parser = argparse.ArgumentParser(
+        description="Run KST optimization from wizard JSON candidate matrix.",
+    )
+    parser.add_argument("input_json", type=Path, help="Wizard JSON with optimization.candidate_matrix")
+    parser.add_argument(
+        "output_txt",
+        type=Path,
+        nargs="?",
+        help="Output TSV (default: next to input as results_wizard_optim.txt)",
+    )
+    parser.add_argument(
+        "--accelerator",
+        choices=("numpy", "torch", "auto"),
+        default="numpy",
+        help="NumPy CPU (default), PyTorch tensor path, or auto-detect device.",
+    )
+    parser.add_argument(
+        "--device",
+        default=None,
+        help=(
+            "PyTorch device when using torch: cuda, cpu, mps, or dml/directml "
+            "(Windows AMD/Intel via torch-directml; uses DirectML backend)."
+        ),
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallel processes for candidate evaluation (1 = sequential).",
+    )
+    ns = parser.parse_args(argv[1:])
+    in_path = ns.input_json.resolve()
+    out_path = ns.output_txt.resolve() if ns.output_txt else in_path.with_name("results_wizard_optim.txt")
     if not in_path.is_file():
         print(f"Input JSON not found: {in_path}", file=sys.stderr)
         return 1
@@ -251,14 +312,30 @@ def main(argv: list[str]) -> int:
         print("candidate_matrix must include at least one non-empty candidates list", file=sys.stderr)
         return 1
 
-    rows: list[tuple[int, float, float, float, float]] = []
     all_candidates = [cand_list for _, cand_list in candidate_sets]
-    for i, combo in enumerate(product(*all_candidates), start=1):
-        cs = _load_constraints_from_analysis_input(analysis_input)
-        for (target, _), cand in zip(candidate_sets, combo):
-            _apply_candidate_to_constraints(cs, target[0], target[1], cand)
-        rating = analyze_constraints(cs)
-        rows.append((i, float(rating.WTR), float(rating.MRR), float(rating.MTR), float(rating.TOR)))
+    combos = list(product(*all_candidates))
+    acc = ns.accelerator
+    dev = ns.device
+    n_workers = max(1, int(ns.workers))
+
+    rows: list[tuple[int, float, float, float, float]] = []
+    if n_workers <= 1:
+        for i, combo in enumerate(combos, start=1):
+            cs = _load_constraints_from_analysis_input(analysis_input)
+            for (target, _), cand in zip(candidate_sets, combo):
+                _apply_candidate_to_constraints(cs, target[0], target[1], cand)
+            rating = analyze_constraints(cs, accelerator=acc, device=dev)
+            rows.append((i, float(rating.WTR), float(rating.MRR), float(rating.MTR), float(rating.TOR)))
+    else:
+        work = [
+            (analysis_input, candidate_sets, combo, acc, dev, i)
+            for i, combo in enumerate(combos, start=1)
+        ]
+        with ThreadPoolExecutor(max_workers=n_workers) as ex:
+            futs = [ex.submit(_wizard_eval_one_combo, w) for w in work]
+            for fut in as_completed(futs):
+                rows.append(fut.result())
+        rows.sort(key=lambda r: r[0])
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as f:

@@ -22,6 +22,9 @@ dev = [
   "mypy>=1.11.0",
 ]
 optimization = ["scikit-learn>=1.2"]
+gpu = ["torch>=2.0"]
+# Windows AMD/Intel GPU via DirectX 12; pins PyTorch from Microsoft (use Python 3.12 venv).
+directml = ["torch-directml"]
 
 [build-system]
 requires = ["setuptools>=61"]

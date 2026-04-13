@@ -400,7 +400,7 @@ test_inputs/endcap_circular_plane.json
 The demo command is:
 
 ```powershell
-python3 scripts/run_wizard_analysis.py test_inputs\endcap_circular_plane.json results\presentation_endcap.tsv --skip-geometry-check
+python3 scripts/run_wizard_analysis.py test_inputs\endcap_circular_plane.json results\presentation\presentation_endcap.tsv --skip-geometry-check
 ```
 
 The expected rating is approximately:

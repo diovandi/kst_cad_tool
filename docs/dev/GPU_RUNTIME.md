@@ -46,7 +46,7 @@ Use a **dedicated Python 3.12 venv** (recommended): `torch-directml` bundles a c
 
 DirectML uses a `torch.device` with type **`privateuseone`** internally; the project resolves **`dml`** / **`directml`** to that device. If a kernel is unsupported, the batched CP path **falls back to NumPy** automatically.
 
-**Fusion 360:** configure the add-in or external script to call **`venv\Scripts\python.exe`** when running [`scripts/run_wizard_analysis.py`](scripts/run_wizard_analysis.py) or [`scripts/run_wizard_optimization.py`](scripts/run_wizard_optimization.py).
+**Fusion 360:** configure the add-in or external script to call **`venv\Scripts\python.exe`** when running [`scripts/run_wizard_analysis.py`](../../scripts/run_wizard_analysis.py) or [`scripts/run_wizard_optimization.py`](../../scripts/run_wizard_optimization.py).
 
 ## Wizard optimization script
 

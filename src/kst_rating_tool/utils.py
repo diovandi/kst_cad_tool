@@ -18,6 +18,32 @@ def matlab_rank(A: NDArray[np.float64]) -> int:
     return int(np.sum(S > tol))
 
 
+def matlab_rank_batched(A: NDArray[np.float64]) -> NDArray[np.int_]:
+    """Batched MATLAB-style rank for stacks of matrices.
+
+    Parameters
+    ----------
+    A
+        Shape ``(N, m, n)`` or ``(m, n)`` (single matrix, returns shape ``(1,)``).
+
+    Returns
+    -------
+    NDArray[np.int_]
+        Integer ranks, shape ``(N,)``.
+    """
+    A = np.asarray(A, dtype=np.float64)
+    if A.ndim == 2:
+        A = A[np.newaxis, ...]
+    _, s, _ = np.linalg.svd(A, full_matrices=False)
+    if s.size == 0:
+        return np.zeros(A.shape[0], dtype=np.int_)
+    m, n = A.shape[-2], A.shape[-1]
+    mx = float(max(m, n))
+    s0 = s[:, 0]
+    tol = mx * np.spacing(s0)
+    return np.sum(s > tol[:, np.newaxis], axis=1).astype(np.int_)
+
+
 def matlab_null(A: NDArray[np.float64]) -> NDArray[np.float64]:
     """Compute the null space of *A* matching MATLAB's ``null(A)`` output.
 

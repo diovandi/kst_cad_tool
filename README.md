@@ -39,6 +39,13 @@ pip install -e ".[dev]"
 pytest --cov=kst_rating_tool --cov-report=term-missing
 ```
 
+Long-running surrogate/optimization benchmarks are kept outside default test discovery.
+Run them explicitly:
+
+```bash
+pytest benchmarks/test_benchmark_surrogates.py -v -s --no-cov
+```
+
 ### Engineering quality checks
 
 Use these commands before opening a PR:
@@ -178,4 +185,3 @@ Optimization Wizard now includes functional **Line**, **Discrete**, **Orient 1D*
 - **Wizard input JSON:** Version 2 format with `point_contacts`, `pins`, `lines`, and `planes` arrays. See [docs/dev/GENERIC_INPUT_FORMAT.md](docs/dev/GENERIC_INPUT_FORMAT.md).
 - **Inventor add-in:** C# prototype for Autodesk Inventor; see [inventor_addin/README.md](inventor_addin/README.md).
 - **SolidWorks/shared UI:** Prototype add-in + shared wizard layer; see [solidworks_addin/README.md](solidworks_addin/README.md) and [shared_cad_ui/README.md](shared_cad_ui/README.md).
-
