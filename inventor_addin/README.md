@@ -41,4 +41,4 @@ A second ribbon button opens the **Optimization Wizard**:
 
 ## References
 
-- [docs/INVENTOR_ADDIN_DEVELOPMENT.md](../docs/INVENTOR_ADDIN_DEVELOPMENT.md) – API notes, geometry selection, links.
+- [docs/cad/INVENTOR_ADDIN_DEVELOPMENT.md](../docs/cad/INVENTOR_ADDIN_DEVELOPMENT.md) – API notes, geometry selection, links.

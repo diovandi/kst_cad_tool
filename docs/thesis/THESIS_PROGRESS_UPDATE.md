@@ -1,7 +1,7 @@
 # Thesis Progress Update — Meeting with Supervisor
 
 **Date:** Feb 3, 2025  
-**Update (Feb 2025):** Python now matches Octave for **all 21 cases** (see [PARKED.md](PARKED.md), [PROJECT_STATUS_SUMMARY.md](PROJECT_STATUS_SUMMARY.md)).  
+**Update (Feb 2025):** Python now matches Octave for **all 21 cases** (see [PARKED.md](../validation/PARKED.md), [PROJECT_STATUS_SUMMARY.md](../dev/PROJECT_STATUS_SUMMARY.md)).  
 **Context:** Follow-up to last week’s discussion (rerun original MATLAB, migrate to better platform, optimization as “black box” brute force, motion generating sets, line search / Newton iteration for future work).
 
 ---
@@ -55,7 +55,7 @@ So the **migration to Python** is done for the core analysis and the 21-case set
 - **Constraint addition** (`optim_main_add`): stub only (MATLAB version is preliminary and has errors; same as in the dissertation).
 - **Reporting:** HTML-style report, `table_mot`, histogram (`histogr`), result_open/close.
 
-Details and MATLAB↔Python mapping are in **`docs/MATLAB_TO_PYTHON_COVERAGE.md`**.
+Details and MATLAB↔Python mapping are in **`docs/validation/MATLAB_TO_PYTHON_COVERAGE.md`**.
 
 ### 2.4 What Is Not Done (Aligned with Last Week)
 
@@ -73,8 +73,8 @@ Details and MATLAB↔Python mapping are in **`docs/MATLAB_TO_PYTHON_COVERAGE.md`
 | Run one case (Python) | `python scripts/run_python_case.py 1` or `case1a_chair_height` |
 | Run one case (Octave) | `cd matlab_script && octave --no-gui run_case_batch.m 1` |
 | Compare Python vs Octave | `python scripts/compare_octave_python.py 1` or `all` |
-| Case list (1–21) | `docs/COMPARISON.md` |
-| MATLAB→Python coverage | `docs/MATLAB_TO_PYTHON_COVERAGE.md` |
+| Case list (1–21) | `docs/validation/COMPARISON.md` |
+| MATLAB→Python coverage | `docs/validation/MATLAB_TO_PYTHON_COVERAGE.md` |
 | Original main script | `matlab_script/Analysis and design tool/main.m` |
 | Input cases | `matlab_script/Input_files/*.m` |
 

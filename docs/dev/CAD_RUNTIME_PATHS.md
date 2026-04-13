@@ -14,7 +14,7 @@ This document is the single source of truth for how each CAD integration talks t
 
 ## Canonical JSON contract
 
-- Use the format in `docs/GENERIC_INPUT_FORMAT.md`.
+- Use the format in `docs/dev/GENERIC_INPUT_FORMAT.md`.
 - Analysis path expects all four constraint arrays:
   - `point_contacts`
   - `pins`

@@ -5,10 +5,10 @@ Deep four-way comparison: Thesis (Ch 10/11) vs MATLAB vs Octave vs Python.
 Parses all _full.txt result files, loads thesis reference data, and produces
 4-column comparison tables for metrics, counts, WTR motion, and CP table.
 Classifies deviations: exact, within tolerance (atol=1e-3, rtol=5%),
-significant (>5%), major (>20%). Writes docs/DEEP_COMPARISON.md.
+significant (>5%), major (>20%). Writes docs/validation/DEEP_COMPARISON.md.
 
 Usage:
-  python scripts/deep_comparison.py [case_name_or_number]... [--matlab] [--out docs/DEEP_COMPARISON.md]
+  python scripts/deep_comparison.py [case_name_or_number]... [--matlab] [--out docs/validation/DEEP_COMPARISON.md]
 
 To include MATLAB in the report, generate MATLAB result files first. From the
 repository root you can run: python scripts/compare_octave_python.py <case> --full --matlab
@@ -389,7 +389,7 @@ def main() -> int:
     if out_path_arg:
         out_path = out_path_arg
     else:
-        out_path = repo_root / "docs" / "DEEP_COMPARISON.md"
+        out_path = repo_root / "docs" / "validation" / "DEEP_COMPARISON.md"
 
     # Determine which cases to run
     cases_to_run = []

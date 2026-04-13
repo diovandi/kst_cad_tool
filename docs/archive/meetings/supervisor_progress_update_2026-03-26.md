@@ -30,7 +30,7 @@ Completed the key follow-ups from the Mar 26 supervisor meeting for analysis cor
 
 ## Next steps
 - Run the manual Fusion circular-cap validation case and compare Fusion output to CLI:
-  - See `docs/FUSION_CIRCULAR_CAP_CASE.md`.
+  - See `docs/cad/FUSION_CIRCULAR_CAP_CASE.md`.
 - Continue Fusion UX improvements (save/load config, invert direction, per-row editing).
 - Complete Python optimization parity work (`rate_motset` HOC support and wizard optimization runner).
 

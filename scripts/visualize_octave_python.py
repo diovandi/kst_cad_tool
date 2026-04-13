@@ -10,8 +10,8 @@ Usage:
           If omitted, uses existing results/python/results_python_*.txt and results_octave_*.txt.
 
 Output:
-  - docs/octave_python_comparison_raw.csv   Raw numbers (case, WTR/MRR/MTR/TOR Python & Octave, abs/rel diff)
-  - docs/figures/octave_python_comparison_*.png   Graphs (bars, scatter, deviation)
+  - docs/validation/octave_python_comparison_raw.csv   Raw numbers (case, WTR/MRR/MTR/TOR Python & Octave, abs/rel diff)
+  - docs/assets/figures/octave_python_comparison_*.png   Graphs (bars, scatter, deviation)
 """
 
 from __future__ import annotations
@@ -268,17 +268,17 @@ def main() -> int:
 
     rows = collect_results(repo_root)
     docs = repo_root / "docs"
-    raw_path = docs / "octave_python_comparison_raw.csv"
+    raw_path = docs / "validation" / "octave_python_comparison_raw.csv"
     write_raw_csv(rows, raw_path)
 
-    figures_dir = docs / "figures"
+    figures_dir = docs / "assets" / "figures"
     try:
         plot_figures(rows, figures_dir)
     except ImportError as e:
         print(f"Matplotlib not available: {e}", file=sys.stderr)
         return 1
 
-    print("\nRaw numbers and figures are in docs/ and docs/figures/.")
+    print("\nRaw numbers and figures are in docs/validation/ and docs/assets/figures/.")
     return 0
 
 

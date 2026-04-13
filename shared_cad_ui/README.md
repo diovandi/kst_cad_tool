@@ -19,7 +19,7 @@ Reusable .NET UI and data-contract layer shared by CAD add-ins.
 ## Host integration
 
 - `inventor_addin` and `solidworks_addin` are expected to implement `IGeometrySelector`.
-- Both hosts should emit the same generic JSON contract documented in `docs/GENERIC_INPUT_FORMAT.md`.
+- Both hosts should emit the same generic JSON contract documented in `docs/dev/GENERIC_INPUT_FORMAT.md`.
 
 ## Backend integration
 

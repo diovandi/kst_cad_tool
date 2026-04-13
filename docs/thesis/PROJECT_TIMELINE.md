@@ -5,7 +5,7 @@ Dense milestones aligned with the **thesis draft** and **colloquium** window. Ad
 | Window | Milestone |
 |--------|-----------|
 | **Mar 30 – Apr 1** | Branch integration on `main` (analysis + surrogate/benchmarks); Fusion plane size mode + manual override; geometry size gate; parity demo script run once. |
-| **Apr 1 (eve)** | Thesis **Ch. 1–4 draft** text frozen; figures numbered; CAD/export subsection references `docs/CAD_EXPORT_AND_THESIS.md`. |
+| **Apr 1 (eve)** | Thesis **Ch. 1–4 draft** text frozen; figures numbered; CAD/export subsection references `docs/thesis/CAD_EXPORT_AND_THESIS.md`. |
 | **Apr 2** | Submit **soft copy** of thesis draft (chapters 1–4) per programme email. |
 | **Apr 3–5** | Buffer: supervisor feedback, small fixes; optional second parity screenshot set. |
 | **Apr 6 – Apr 24** | **Colloquium** slots: present progress; collect notes for later chapters. |

@@ -9,9 +9,9 @@
 
 Use this file for meeting-level status only. For implementation details, use:
 
-- `docs/PROGRESS.md` (developer operational guide)
-- `docs/CAD_RUNTIME_PATHS.md` (cross-CAD runtime architecture)
-- `docs/PARKED.md` (parity and historical validation record)
+- `docs/dev/PROGRESS.md` (developer operational guide)
+- `docs/dev/CAD_RUNTIME_PATHS.md` (cross-CAD runtime architecture)
+- `docs/validation/PARKED.md` (parity and historical validation record)
 
 ---
 
@@ -39,7 +39,7 @@ For the cases with explicit thesis references (Ch 10 tables), both Python and Oc
 | case2b_cube_tradeoff | Ch 10 Table 10.6 | PASS | PASS |
 | case3a_cover_leverage | Ch 10 Table 10.10 | PASS | PASS |
 
-See [THESIS_COMPARISON.md](THESIS_COMPARISON.md) and `python scripts/compare_to_thesis.py all`.
+See [THESIS_COMPARISON.md](../thesis/THESIS_COMPARISON.md) and `python scripts/compare_to_thesis.py all`.
 
 ### 1.3 Historical note
 
@@ -69,7 +69,7 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 
 ### 2.3 CAD add-in (Inventor) — Skeleton and design
 
-- **Research:** [INVENTOR_ADDIN_DEVELOPMENT.md](INVENTOR_ADDIN_DEVELOPMENT.md) — C#/.NET, ApplicationAddInServer, ribbon, geometry selection, WPF/WinForms.
+- **Research:** [INVENTOR_ADDIN_DEVELOPMENT.md](../cad/INVENTOR_ADDIN_DEVELOPMENT.md) — C#/.NET, ApplicationAddInServer, ribbon, geometry selection, WPF/WinForms.
 - **Project skeleton:** `inventor_addin/` — C# Analysis Wizard and Optimization Wizard, ribbon buttons, generic JSON output.
 - **Wizard demo (Python):** `scripts/wizard_demo.py` — Standalone GUI (tkinter) that mimics the two wizards for meetings. Run: `python scripts/wizard_demo.py`.
 
@@ -94,8 +94,8 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 
 ### 2.7 MATLAB integration and compiler
 
-- **MATLAB_INTEGRATION.md** — Calling MATLAB or compiled exe from the add-in.
-- **MATLAB_COMPILER.md** — Compiling the analysis pipeline to a standalone exe.
+- **[MATLAB_INTEGRATION.md](../matlab/MATLAB_INTEGRATION.md)** — Calling MATLAB or compiled exe from the add-in.
+- **[MATLAB_COMPILER.md](../matlab/MATLAB_COMPILER.md)** — Compiling the analysis pipeline to a standalone exe.
 - **benchmark_wizard_analysis.m** — Timing for run_wizard_analysis.
 
 ### 2.8 Optimization and validation updates (latest)
@@ -106,7 +106,7 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
   - `tests/test_optimization_smoke.py` includes pin/mixed/HOC optimization runner coverage.
   - `tests/test_optimization_ui_plan.py` validates Orient 1D/2D plan generation.
 - CI now runs coverage output with `pytest --cov=kst_rating_tool --cov-report=term-missing`.
-- Circular-cap fixture revalidation confirmed expected metrics; see `docs/FUSION_CIRCULAR_CAP_CASE.md`.
+- Circular-cap fixture revalidation confirmed expected metrics; see `docs/cad/FUSION_CIRCULAR_CAP_CASE.md`.
 
 ---
 
@@ -115,13 +115,13 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 | Item | Location |
 |------|----------|
 | Parity (21/21 Python vs Octave) | Result files in repo; `python scripts/compare_octave_python.py all` |
-| Parity status doc | [docs/PARKED.md](PARKED.md) |
+| Parity status doc | [docs/validation/PARKED.md](../validation/PARKED.md) |
 | Fusion 360 add-in (all 4 types) | `fusion360_addin/KstAnalysis/` — run in Fusion 360 |
 | Fusion bundle sync check | `python fusion360_addin/build_bundle.py --verify` |
 | Wizard demo (meeting) | `python scripts/wizard_demo.py` |
 | Inventor add-in skeleton | `inventor_addin/` (build on Windows with VS + Inventor) |
 | SolidWorks + shared wizard prototype | `solidworks_addin/`, `shared_cad_ui/` |
-| Generic input spec (v2) | [docs/GENERIC_INPUT_FORMAT.md](GENERIC_INPUT_FORMAT.md) |
+| Generic input spec (v2) | [docs/dev/GENERIC_INPUT_FORMAT.md](GENERIC_INPUT_FORMAT.md) |
 | Analysis from JSON (Python) | `scripts/run_wizard_analysis.py` — reads v2 JSON, all 4 types; writes HTML report |
 | Analysis from JSON (MATLAB) | `matlab_script/Analysis and design tool/run_wizard_analysis.m` |
 | Optimization from JSON (MATLAB) | `matlab_script/Analysis and design tool/run_wizard_optimization.m` |
@@ -131,7 +131,7 @@ Earlier docs (e.g. DEEP_COMPARISON.md) described a snapshot where Python diverge
 
 ## 4. Next steps (from plan)
 
-1. **Fusion 360 validation:** Run and archive manual circular-cap and real-model checks ([FUSION_CIRCULAR_CAP_CASE.md](FUSION_CIRCULAR_CAP_CASE.md)); continue testing Line/Plane on real models; refine property extraction as needed.
+1. **Fusion 360 validation:** Run and archive manual circular-cap and real-model checks ([FUSION_CIRCULAR_CAP_CASE.md](../cad/FUSION_CIRCULAR_CAP_CASE.md)); continue testing Line/Plane on real models; refine property extraction as needed.
 2. **Constraint modeling guidance:** Define canonical mapping table (pin/point/line/plane to DOF effects); add UX tooltips.
 3. **Example validation cases:** Implement 4-bolt plate, lip edge contact, threaded insert in Fusion to validate modeling.
 4. **Optional — Inventor add-in (Windows):** Build and register; implement geometry selection.

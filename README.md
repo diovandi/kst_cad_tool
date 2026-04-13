@@ -95,7 +95,7 @@ python scripts/run_python_specmot.py <case_name_or_number> [motion_index]
 
 ### Running the same test cases in Python and Octave
 
-You can run the original MATLAB test cases in Python (by loading the `.m` case files) and in GNU Octave (no MATLAB license required), then compare WTR, MRR, MTR, TOR. See **[docs/COMPARISON.md](docs/COMPARISON.md)** for:
+You can run the original MATLAB test cases in Python (by loading the `.m` case files) and in GNU Octave (no MATLAB license required), then compare WTR, MRR, MTR, TOR. See **[docs/validation/COMPARISON.md](docs/validation/COMPARISON.md)** for:
 
 - **Python**: `python scripts/run_python_case.py <case_name_or_number>` (e.g. `1` or `case1a_chair_height`). Results are written to `results/python/results_python_<case>.txt` (and `_full.txt` with `--full`). A MATLAB-style **`Result - <case>.html`** report is written alongside the text outputs. For legacy `.m` cases with multiple `no_snap` branches, use `--no-snap N` (see `io_legacy.load_case_m_file`).
 - **Octave**: `cd matlab_script && octave --no-gui run_case_batch.m <case_number>`
@@ -109,7 +109,7 @@ For a **discrete candidate matrix** (same shape as `matlab_script/Input_files/ge
 python scripts/run_wizard_optimization.py <input_json> [output_tsv]
 ```
 
-The runner resolves targets via `type` + `index`, global `constraint_index` (points, then pins, then lines, then planes), and optional Cartesian products across multiple matrix entries. See **[docs/GENERIC_INPUT_FORMAT.md](docs/GENERIC_INPUT_FORMAT.md)**.
+The runner resolves targets via `type` + `index`, global `constraint_index` (points, then pins, then lines, then planes), and optional Cartesian products across multiple matrix entries. See **[docs/dev/GENERIC_INPUT_FORMAT.md](docs/dev/GENERIC_INPUT_FORMAT.md)**.
 
 ### Fusion 360 add-in
 
@@ -129,7 +129,7 @@ See **[fusion360_addin/README.md](fusion360_addin/README.md)** for setup instruc
 
 For a cross-CAD runtime matrix (Fusion repo mode, Fusion bundle mode, Inventor, SolidWorks, wizard demo), see:
 
-- **[docs/CAD_RUNTIME_PATHS.md](docs/CAD_RUNTIME_PATHS.md)**
+- **[docs/dev/CAD_RUNTIME_PATHS.md](docs/dev/CAD_RUNTIME_PATHS.md)**
 
 ### Wizard demo (meeting preview)
 
@@ -139,7 +139,7 @@ A **Python skeleton** of the planned add-in (Analysis + Optimization wizards) ru
 python scripts/wizard_demo.py
 ```
 
-Two tabs: **Analysis Wizard** (constraint table, Select, Analyze → JSON) and **Optimization Wizard** (constraint selection, search space, generate plan, load results). See **[docs/PROJECT_STATUS_SUMMARY.md](docs/PROJECT_STATUS_SUMMARY.md)** for project status.
+Two tabs: **Analysis Wizard** (constraint table, Select, Analyze → JSON) and **Optimization Wizard** (constraint selection, search space, generate plan, load results). See **[docs/dev/PROJECT_STATUS_SUMMARY.md](docs/dev/PROJECT_STATUS_SUMMARY.md)** for project status.
 
 Optimization Wizard now includes functional **Line**, **Discrete**, **Orient 1D**, and **Orient 2D** parameter tabs for generating optimization candidate plans.
 
@@ -172,10 +172,10 @@ Optimization Wizard now includes functional **Line**, **Discrete**, **Orient 1D*
 
 ### Status
 
-- **Python engine:** Primary analysis backend; validated against Octave/MATLAB for **all 21 benchmark cases** (atol=1e-3, rtol=5%). See [docs/PARKED.md](docs/PARKED.md) for validation status.
+- **Python engine:** Primary analysis backend; validated against Octave/MATLAB for **all 21 benchmark cases** (atol=1e-3, rtol=5%). See [docs/validation/PARKED.md](docs/validation/PARKED.md) for validation status.
 - **Fusion 360 add-in:** Supports all four constraint types (Point, Pin, Line, Plane) with type-aware selection filters, orientation method selection for Point, save/load/invert/update UX, and JSON export for analysis via external Python. See [fusion360_addin/README.md](fusion360_addin/README.md).
 - **CLI:** `scripts/run_wizard_analysis.py` (analysis + HTML), `scripts/run_wizard_optimization.py` (candidate-matrix sweep).
-- **Wizard input JSON:** Version 2 format with `point_contacts`, `pins`, `lines`, and `planes` arrays. See [docs/GENERIC_INPUT_FORMAT.md](docs/GENERIC_INPUT_FORMAT.md).
+- **Wizard input JSON:** Version 2 format with `point_contacts`, `pins`, `lines`, and `planes` arrays. See [docs/dev/GENERIC_INPUT_FORMAT.md](docs/dev/GENERIC_INPUT_FORMAT.md).
 - **Inventor add-in:** C# prototype for Autodesk Inventor; see [inventor_addin/README.md](inventor_addin/README.md).
 - **SolidWorks/shared UI:** Prototype add-in + shared wizard layer; see [solidworks_addin/README.md](solidworks_addin/README.md) and [shared_cad_ui/README.md](shared_cad_ui/README.md).
 

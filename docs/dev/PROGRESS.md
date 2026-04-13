@@ -7,11 +7,12 @@
 
 ## 0. Documentation map (read this first)
 
+- `docs/README.md`: index of documentation subfolders (`dev/`, `validation/`, `thesis/`, etc.).
 - `README.md`: onboarding and quick commands.
-- `docs/PROGRESS.md` (this file): developer runbook and practical workflow.
-- `docs/PROJECT_STATUS_SUMMARY.md`: meeting-ready status snapshot.
-- `docs/PARKED.md`: parity archive and historical notes.
-- `docs/CAD_RUNTIME_PATHS.md`: runtime architecture across Fusion/Inventor/SolidWorks.
+- `docs/dev/PROGRESS.md` (this file): developer runbook and practical workflow.
+- `docs/dev/PROJECT_STATUS_SUMMARY.md`: meeting-ready status snapshot.
+- `docs/validation/PARKED.md`: parity archive and historical notes.
+- `docs/dev/CAD_RUNTIME_PATHS.md`: runtime architecture across Fusion/Inventor/SolidWorks.
 
 ---
 
@@ -33,15 +34,15 @@ Recent implementation updates in this pass:
 - `src/kst_rating_tool/ui/optimization_ui.py` implements Orient 1D and Orient 2D plan generation.
 - Added optimization integration tests (`tests/test_optimization_smoke.py`, `tests/test_optimization_ui_plan.py`).
 - CI reports coverage (`pytest --cov=kst_rating_tool --cov-report=term-missing`).
-- Circular-cap fixture revalidated via CLI; see `docs/FUSION_CIRCULAR_CAP_CASE.md`.
+- Circular-cap fixture revalidated via CLI; see `docs/cad/FUSION_CIRCULAR_CAP_CASE.md`.
 - MATLAB-style **HTML reports** from `run_python_case.py` and `run_wizard_analysis.py`; **`--no-snap N`** on `run_python_case.py` for legacy `.m` branches; HOC fixtures (`test_inputs/endcap_circular_plane.json`, `cover_rect_plane.json`, `tests/test_hoc_planes_and_reporting.py`).
 - Fusion wizard **save/load** (`constraint_config.json`), **invert direction**, **update selected row**; **`rate_motset`** dispatches CLIN/CPLN; rebuild bundle with `python fusion360_addin/build_bundle.py` after source changes.
 
 
 For a concise project-level summary see also:
 
-- `docs/PROJECT_STATUS_SUMMARY.md`
-- `docs/THESIS_PROGRESS_UPDATE.md`
+- `docs/dev/PROJECT_STATUS_SUMMARY.md`
+- `docs/thesis/THESIS_PROGRESS_UPDATE.md`
 
 This document is aimed at you as the active developer: **what exists, where it lives, how to rerun it, and what’s next.**
 
@@ -176,13 +177,13 @@ python scripts/compare_to_thesis.py 1
 - **Python input**: `results/python/results_python_<case>_full.txt`
 - **Octave/MATLAB input**: `matlab_script/results_octave_<case>_full.txt` or `results_matlab_<case>_full.txt`
 
-See also `docs/THESIS_COMPARISON.md` for written notes.
+See also `docs/thesis/THESIS_COMPARISON.md` for written notes.
 
 ### 3.4 Deep four-way comparison (thesis vs MATLAB vs Octave vs Python)
 
 Script: `scripts/deep_comparison.py`
 
-- **What it does**: Parses all `_full` results and generates `docs/DEEP_COMPARISON.md` with multi-column tables:
+- **What it does**: Parses all `_full` results and generates `docs/validation/DEEP_COMPARISON.md` with multi-column tables:
   - Metrics, counts, WTR motion, and CP tables,
   - Classification (exact, within_tol, significant, major).
 - **Usage**:
@@ -201,8 +202,8 @@ Good for **diagnosing any non-trivial parity issues**.
 Script: `scripts/visualize_octave_python.py`
 
 - **What it does**: Aggregates WTR/MRR/MTR/TOR from Python and Octave for all cases and produces:
-  - `docs/octave_python_comparison_raw.csv`
-  - Figures under `docs/figures/` (bar charts, scatter plots, worst-case deviations).
+  - `docs/validation/octave_python_comparison_raw.csv`
+  - Figures under `docs/assets/figures/` (bar charts, scatter plots, worst-case deviations).
 - **Usage**:
 
 ```bash
@@ -253,7 +254,7 @@ python scripts/run_wizard_optimization.py matlab_script/Input_files/generic_exam
 
 ### 4.1 Python vs Octave/MATLAB
 
-- **Status**: As of Feb 2025 (see `docs/PROJECT_STATUS_SUMMARY.md` and `docs/PARKED.md`), **all 21 benchmark cases pass**:
+- **Status**: As of Feb 2025 (see `docs/dev/PROJECT_STATUS_SUMMARY.md` and `docs/validation/PARKED.md`), **all 21 benchmark cases pass**:
   - WTR, MRR, MTR, TOR match within `atol = 1e-3`, `rtol = 5%`.
   - This has been re-verified using `python scripts/compare_octave_python.py all`.
 - **Reference cases (with thesis tables)**:
@@ -264,9 +265,9 @@ python scripts/run_wizard_optimization.py matlab_script/Input_files/generic_exam
 
 For details, see:
 
-- `docs/PROJECT_STATUS_SUMMARY.md` (high-level),
-- `docs/THESIS_PROGRESS_UPDATE.md` (supervisor meeting notes),
-- `docs/COMPARISON.md` and `docs/MATLAB_TO_PYTHON_COVERAGE.md` (mapping between MATLAB and Python functions).
+- `docs/dev/PROJECT_STATUS_SUMMARY.md` (high-level),
+- `docs/thesis/THESIS_PROGRESS_UPDATE.md` (supervisor meeting notes),
+- `docs/validation/COMPARISON.md` and `docs/validation/MATLAB_TO_PYTHON_COVERAGE.md` (mapping between MATLAB and Python functions).
 
 ### 4.2 Known historical quirks
 
@@ -296,13 +297,15 @@ kst_cad_tool/
 │   ├── Input_files/
 │   └── results_octave_*_full.txt, results_matlab_*_full.txt, etc.
 ├── docs/
-│   ├── PROJECT_STATUS_SUMMARY.md
-│   ├── THESIS_PROGRESS_UPDATE.md
-│   ├── COMPARISON.md
-│   ├── MATLAB_TO_PYTHON_COVERAGE.md
-│   ├── DEEP_COMPARISON.md         # generated
-│   ├── octave_python_comparison_raw.csv
-│   └── figures/
+│   ├── README.md                  # index of subfolders
+│   ├── dev/                       # runbooks, JSON spec, GPU/runtime
+│   ├── validation/                # parity, COMPARISON, DEEP_COMPARISON (generated), CSV
+│   ├── thesis/                    # thesis-facing notes
+│   ├── colloquium/                # presentation materials
+│   ├── cad/                       # Fusion/Inventor case notes
+│   ├── matlab/                    # MATLAB integration notes
+│   ├── assets/images/             # diagrams
+│   └── assets/figures/           # Octave/Python plots (from visualize script)
 ├── scripts/
 ├── src/kst_rating_tool/
 ├── fusion360_addin/
@@ -342,7 +345,7 @@ High-level flow:
 3. Add-in builds a v2 JSON file with `point_contacts`, `pins`, `lines`, `planes`.
 4. External Python script runs analysis and returns WTR/MRR/MTR/TOR.
 
-See [fusion360_addin/README.md](../fusion360_addin/README.md) for setup instructions.
+See [fusion360_addin/README.md](../../fusion360_addin/README.md) for setup instructions.
 
 ### 6.2 Inventor add-in (`inventor_addin/`)
 
@@ -388,9 +391,9 @@ When you come back to this project, a typical “resume work” sequence:
    python scripts/compare_octave_python.py all
    ```
 3. **Refresh your memory of thesis mapping and coverage**:
-   - Skim `docs/PROJECT_STATUS_SUMMARY.md`,
-   - Skim `docs/MATLAB_TO_PYTHON_COVERAGE.md`,
-   - Skim `docs/THESIS_PROGRESS_UPDATE.md`.
+   - Skim `docs/dev/PROJECT_STATUS_SUMMARY.md`,
+   - Skim `docs/validation/MATLAB_TO_PYTHON_COVERAGE.md`,
+   - Skim `docs/thesis/THESIS_PROGRESS_UPDATE.md`.
 4. **Run the wizard demo** if you’re focusing on CAD UX:
    ```bash
    python scripts/wizard_demo.py
@@ -403,7 +406,7 @@ When you come back to this project, a typical “resume work” sequence:
 These are the most natural next tasks:
 
 - **Fusion 360 validation and UX**:
-  - Run the manual circular-cap procedure in [FUSION_CIRCULAR_CAP_CASE.md](FUSION_CIRCULAR_CAP_CASE.md) and compare Fusion output to CLI; archive and compare in-app Fusion outputs against CLI for additional models.
+  - Run the manual circular-cap procedure in [FUSION_CIRCULAR_CAP_CASE.md](../cad/FUSION_CIRCULAR_CAP_CASE.md) and compare Fusion output to CLI; archive and compare in-app Fusion outputs against CLI for additional models.
   - Test all four constraint types end-to-end in Fusion 360 with real CAD models.
   - After changing `fusion360_addin/KstAnalysis/`, rebuild the installable bundle: `python fusion360_addin/build_bundle.py`, then copy `KstAnalysis.bundle` to `%APPDATA%\Autodesk\ApplicationPlugins\`.
   - Refine Line constraint: allow user to pick a separate constraint direction (perpendicular to line).

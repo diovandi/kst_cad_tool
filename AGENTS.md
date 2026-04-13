@@ -9,7 +9,7 @@ This is a Python library project (no running services, databases, or web servers
 - **Install**: `pip install -e ".[dev]"` (editable with test deps)
 - **Tests**: `pytest --cov=kst_rating_tool --cov-report=term-missing` (50+ tests across multiple `tests/test_*.py` files)
 - **Run a case**: `python3 scripts/run_python_case.py <case_name_or_number>` (e.g. `1`); optional `--no-snap N` for legacy `.m` branches; writes `Result - <case>.html` with text outputs
-- **Wizard optimization sweep**: `python3 scripts/run_wizard_optimization.py <optimization.json> [out.tsv]` — candidate matrices for all constraint types (see `docs/GENERIC_INPUT_FORMAT.md`)
+- **Wizard optimization sweep**: `python3 scripts/run_wizard_optimization.py <optimization.json> [out.tsv]` — candidate matrices for all constraint types (see `docs/dev/GENERIC_INPUT_FORMAT.md`)
 - **Lint**: No linter is configured in this project
 
 ### Project structure highlights
@@ -30,4 +30,4 @@ This is a Python library project (no running services, databases, or web servers
 - Fusion analysis command supports save/load constraint config, invert direction, and per-row editing.
 - The `scripts/wizard_demo.py` requires a display (tkinter GUI); it will not work headless without `DISPLAY` set.
 - CAD add-ins (Inventor, Fusion 360, SolidWorks) are Windows-only and not runnable in this environment.
-- The wizard input JSON is now at version 2: it contains `point_contacts`, `pins`, `lines`, and `planes` arrays (see `docs/GENERIC_INPUT_FORMAT.md`).
+- The wizard input JSON is now at version 2: it contains `point_contacts`, `pins`, `lines`, and `planes` arrays (see `docs/dev/GENERIC_INPUT_FORMAT.md`).

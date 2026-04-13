@@ -39,8 +39,8 @@ Earlier documentation (e.g. DEEP_COMPARISON.md and an older version of this file
 ## References
 
 - **Parity comparison scripts:** [COMPARISON.md](COMPARISON.md)
-- **Thesis reference comparison (Ch 10/11):** [THESIS_COMPARISON.md](THESIS_COMPARISON.md)
-- **Project status:** [PROJECT_STATUS_SUMMARY.md](PROJECT_STATUS_SUMMARY.md)
-- **CAD runtime matrix:** [CAD_RUNTIME_PATHS.md](CAD_RUNTIME_PATHS.md)
-- **Fusion 360 add-in:** [fusion360_addin/README.md](../fusion360_addin/README.md)
+- **Thesis reference comparison (Ch 10/11):** [THESIS_COMPARISON.md](../thesis/THESIS_COMPARISON.md)
+- **Project status:** [PROJECT_STATUS_SUMMARY.md](../dev/PROJECT_STATUS_SUMMARY.md)
+- **CAD runtime matrix:** [CAD_RUNTIME_PATHS.md](../dev/CAD_RUNTIME_PATHS.md)
+- **Fusion 360 add-in:** [fusion360_addin/README.md](../../fusion360_addin/README.md)
 - **Scripts:** `scripts/compare_octave_python.py`, `scripts/compare_to_thesis.py`, `scripts/run_python_case.py`, `scripts/run_wizard_analysis.py`

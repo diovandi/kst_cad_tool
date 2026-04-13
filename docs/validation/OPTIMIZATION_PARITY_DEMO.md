@@ -29,10 +29,10 @@ Use your existing wizard optimization driver with the **same** JSON path. Captur
 
 ## 4. Compare
 
-- Candidate **index** order must match (same `candidate_matrix` row order and `itertools.product` ordering; see `docs/COMPARISON.md` for known printer-case ordering differences).
+- Candidate **index** order must match (same `candidate_matrix` row order and `itertools.product` ordering; see `docs/validation/COMPARISON.md` for known printer-case ordering differences).
 - For the generic point-only example above, numeric values should match within floating-point tolerance.
 
 ## 5. What to bring to the meeting
 
 - Screenshot or file of **Python TSV** + **MATLAB output** for the same case.
-- If a case differs, note whether it is one of the documented combo-order issues (printer cases in `docs/DEEP_COMPARISON.md`).
+- If a case differs, note whether it is one of the documented combo-order issues (printer cases in `docs/validation/DEEP_COMPARISON.md`).

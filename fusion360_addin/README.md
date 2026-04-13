@@ -107,7 +107,7 @@ For optimization, `scripts/run_wizard_optimization.py` accepts wizard optimizati
 ## Runtime model
 
 - UI host: Fusion command wizard in `KstAnalysis`.
-- Serialization contract: v2 JSON in `docs/GENERIC_INPUT_FORMAT.md`.
+- Serialization contract: v2 JSON in `docs/dev/GENERIC_INPUT_FORMAT.md`.
 - Compute backend:
   - `scripts/run_wizard_analysis.py`
   - `scripts/run_wizard_optimization.py`

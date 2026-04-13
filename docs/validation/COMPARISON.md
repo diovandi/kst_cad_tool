@@ -4,7 +4,7 @@ This document describes how to run the same test cases in the Python KST tool an
 
 ## Prerequisites
 
-- **Python**: Install the project with `pip install -e .` from the repo root (see [README](../README.md)).
+- **Python**: Install the project with `pip install -e .` from the repo root (see [README](../../README.md)).
 - **GNU Octave**: Install Octave (no MATLAB license required). The original MATLAB scripts in `matlab_script/` run under Octave with minor compatibility fixes (e.g. row/column handling in `react_wr_5_compose.m`).
 
 ## Case numbers and names
@@ -122,11 +122,11 @@ python scripts/visualize_octave_python.py --run
 
 **Output:**
 
-- **`docs/octave_python_comparison_raw.csv`** — Raw numbers: case number/name, WTR/MRR/MTR/TOR for Python and Octave, absolute and relative differences (%). One row per case.
-- **`docs/figures/octave_python_comparison_bars.png`** — Grouped bar charts: Python vs Octave for WTR, MRR, MTR, TOR (one subplot per metric).
-- **`docs/figures/octave_python_deviation_rel.png`** — Relative deviation (%) per case per metric (grouped bars).
-- **`docs/figures/octave_python_scatter.png`** — Scatter: Python vs Octave (one subplot per metric; diagonal line = agreement).
-- **`docs/figures/octave_python_max_deviation.png`** — Max relative deviation per case (green ≤5%, orange ≤20%, red >20%).
+- **`docs/validation/octave_python_comparison_raw.csv`** — Raw numbers: case number/name, WTR/MRR/MTR/TOR for Python and Octave, absolute and relative differences (%). One row per case.
+- **`docs/assets/figures/octave_python_comparison_bars.png`** — Grouped bar charts: Python vs Octave for WTR, MRR, MTR, TOR (one subplot per metric).
+- **`docs/assets/figures/octave_python_deviation_rel.png`** — Relative deviation (%) per case per metric (grouped bars).
+- **`docs/assets/figures/octave_python_scatter.png`** — Scatter: Python vs Octave (one subplot per metric; diagonal line = agreement).
+- **`docs/assets/figures/octave_python_max_deviation.png`** — Max relative deviation per case (green ≤5%, orange ≤20%, red >20%).
 
 ### Validation status
 
@@ -134,7 +134,7 @@ With atol=1e-3 and rtol=5%, **all 21 cases pass** (Python vs Octave). The result
 
 ### Parity (combo order and duplicate resolution)
 
-The Python port is aligned with MATLAB/Octave so that combo order and duplicate-motion resolution match, giving **full 21-case parity**. The main alignment points: combo order (lexicographic, matching `nchoosek`), first-occurrence semantics for unique motions, and consistent rounding and solver usage. To re-verify: `python scripts/compare_octave_python.py all`. See [PARKED.md](PARKED.md) and [PROJECT_STATUS_SUMMARY.md](PROJECT_STATUS_SUMMARY.md).
+The Python port is aligned with MATLAB/Octave so that combo order and duplicate-motion resolution match, giving **full 21-case parity**. The main alignment points: combo order (lexicographic, matching `nchoosek`), first-occurrence semantics for unique motions, and consistent rounding and solver usage. To re-verify: `python scripts/compare_octave_python.py all`. See [PARKED.md](PARKED.md) and [PROJECT_STATUS_SUMMARY.md](../dev/PROJECT_STATUS_SUMMARY.md).
 
 *(The following paragraph is kept for reference on why ordering matters.)*
 
