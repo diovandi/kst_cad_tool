@@ -248,3 +248,91 @@ def test_run_wizard_optimization_supports_hoc_line_and_plane_candidates(tmp_path
     assert proc.returncode == 0, proc.stderr or proc.stdout
     lines = out_txt.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) >= 5  # header + 2x2 candidates
+
+
+def test_run_wizard_revision_script_smoke(tmp_path: Path):
+    """CLI test for run_wizard_revision.py"""
+    repo_root = Path(__file__).resolve().parent.parent
+    script = repo_root / "scripts" / "run_wizard_revision.py"
+    if not script.is_file():
+        return
+
+    payload = {
+        "analysis_input": {
+            "version": 2,
+            "point_contacts": [
+                [0, 0, 0, 0, 0, 1],
+                [20, 0, 0, 0, 0, 1],
+                [0, 20, 0, 0, 0, 1],
+                [0, 0, 20, 0, 0, 1],
+                [10, 10, 0, 0, 0, 1],
+                [10, 0, 10, 0, 0, 1],
+            ],
+            "pins": [],
+            "lines": [],
+            "planes": [],
+        },
+        "optimization": {
+            "no_step": 3,
+            "groups": [
+                {
+                    "type": "point",
+                    "index": 1,
+                    "rev_type": "line",
+                    "srch_spc": [0, 0, 0, 1, 0, 0, 5.0],
+                }
+            ],
+        },
+    }
+    in_json = tmp_path / "revision.json"
+    out_tsv = tmp_path / "revision_results.tsv"
+    in_json.write_text(json.dumps(payload), encoding="utf-8")
+
+    proc = subprocess.run(
+        [sys.executable, str(script), str(in_json), str(out_tsv)],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root),
+    )
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    text = out_tsv.read_text(encoding="utf-8")
+    assert "x1\tWTR\tMRR\tMTR\tTOR" in text
+    lines = text.strip().splitlines()
+    assert len(lines) == 5  # header + no_step+1 = 4 grid points
+
+
+def test_run_sensitivity_analysis_script_smoke(tmp_path: Path):
+    """CLI test for run_sensitivity_analysis.py"""
+    repo_root = Path(__file__).resolve().parent.parent
+    script = repo_root / "scripts" / "run_sensitivity_analysis.py"
+    if not script.is_file():
+        return
+
+    payload = {
+        "version": 2,
+        "point_contacts": [
+            [0, 0, 0, 0, 0, 1],
+            [20, 0, 0, 0, 0, 1],
+            [0, 20, 0, 0, 0, 1],
+            [0, 0, 20, 0, 0, 1],
+        ],
+        "pins": [],
+        "lines": [],
+        "planes": [],
+    }
+    in_json = tmp_path / "sensitivity.json"
+    out_tsv = tmp_path / "sensitivity_results.tsv"
+    in_json.write_text(json.dumps(payload), encoding="utf-8")
+
+    proc = subprocess.run(
+        [sys.executable, str(script), str(in_json), "--mode", "pos", "--steps", "2", "--output", str(out_tsv)],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root),
+    )
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    text = out_tsv.read_text(encoding="utf-8")
+    assert "idx\ttype\tlabel\tmax_WTR_chg" in text
+    lines = text.strip().splitlines()
+    assert len(lines) == 5  # header + 4 constraints
+
